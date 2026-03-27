@@ -1,0 +1,280 @@
+---
+# Inner Auto Loop — Project Profile Schema
+# 由 Phase 0 (Project Discovery) 生成，供後續所有 Phase 引用
+# 詳見：ai-loop/core/project-discovery.md
+---
+$schema: "project-profile/v1"
+
+# ============================================================
+# 欄位定義
+# ============================================================
+
+project_id:
+  type: string
+  description: "專案唯一識別碼，格式：{project_name}-{YYYY-MM-DD}"
+  example: "my-project-2026-03-11"
+
+discovered_at:
+  type: string
+  format: date
+  description: "Discovery 執行日期，格式 YYYY-MM-DD"
+
+is_existing_project:
+  type: boolean
+  description: "是否為既有專案（true = 有既有程式碼導入，false = 全新專案）"
+
+# ============================================================
+# 框架資訊
+# ============================================================
+
+framework:
+  type: object
+  required: [primary]
+  properties:
+    primary:
+      type: string
+      enum: [angular-wec, dotnet, python]
+      description: "主要框架，由 adapter-registry 偵測"
+    version:
+      type: string
+      description: "框架主要版本號"
+      example: "17.3.0"
+    secondary:
+      type: string
+      enum: [angular-wec, dotnet, python, null]
+      description: "次要框架（monorepo 場景），通常為 null"
+    scope:
+      type: object
+      description: |
+        Composite Adapter 場景：指定各框架負責的目錄範圍。
+        僅當 secondary 非 null 時必填。
+      example:
+        angular-wec: "frontend/"
+        python: "backend/"
+    entry_point:
+      type: string
+      description: "專案主要入口檔案（Python 專案用）"
+      example: "main.py"
+    is_streamlit:
+      type: boolean
+      description: "是否為 Streamlit 專案（Python 專案用）"
+
+# ============================================================
+# Angular WEC Fork 狀態（僅 primary=angular-wec 時生成）
+# ============================================================
+
+angular_wec_status:
+  type: object
+  description: "僅當 framework.primary = angular-wec 時由 detector 生成"
+  properties:
+    fork_status:
+      type: string
+      enum: [CONFIGURED, NOT_CONFIGURED]
+      description: |
+        CONFIGURED = upstream remote 已指向 wec-main
+        NOT_CONFIGURED = upstream 不存在或指向其他 repo
+    fork_origin:
+      type: string
+      enum: [VALID, DIRECT_CLONE]
+      description: |
+        VALID = origin 為 fork repo
+        DIRECT_CLONE = origin 直接指向原始 wec-main repo
+    dependency_mode:
+      type: string
+      enum: [submodule, npm, NOT_INITIALIZED]
+      description: |
+        submodule = 使用 git submodule 管理 wec-core/wec-components
+        npm = 使用 npm package @wec/core, @wec/components
+        NOT_INITIALIZED = 尚未決定模式
+    initialization_required:
+      type: boolean
+      description: "true = 需先執行 wec-framework-install skill"
+    initialization_skill:
+      type: string
+      description: "引導至的 skill 名稱"
+      example: "wec-framework-install"
+
+# ============================================================
+# Python wecpy 狀態（僅 primary=python 時生成）
+# wecpy 是企業級共用 Library（非 API 框架），需搭配 API 框架使用
+# ============================================================
+
+wecpy_status:
+  type: object
+  description: "僅當 framework.primary = python 時由 detector 生成"
+  properties:
+    wecpy_detected:
+      type: boolean
+      description: "是否在依賴清單或 import 中偵測到 wecpy"
+    wecpy_initialized:
+      type: boolean
+      description: "true = PROD/config.yaml 或 PILOT/config.yaml 存在"
+    initialization_required:
+      type: boolean
+      description: |
+        true = 需建立 wecpy 專案結構（config.yaml 等）。
+        由 project-discovery Step 5 根據 wecpy_detected + wecpy_initialized + is_existing_project 綜合判定。
+# ============================================================
+# .NET iMX.Framework 狀態（僅 primary=dotnet 時生成）
+# ============================================================
+
+dotnet_status:
+  type: object
+  description: "僅當 framework.primary = dotnet 時由 detector 生成"
+  properties:
+    target_framework:
+      type: string
+      description: "目標 .NET 版本"
+      example: "net8.0"
+    imx_framework_detected:
+      type: boolean
+      description: "是否偵測到 iMX.Framework NuGet 導入"
+    imx_framework_version:
+      type: string
+      description: "偵測到的 iMX.Framework 版本號"
+      example: "2.0.0"
+    appsettings_configured:
+      type: boolean
+      description: "true = appsettings.json 包含 iMXConfig 區塊"
+    imx_initialized:
+      type: boolean
+      description: "true = AddWebApiSupport() 或 IMXFramework.Initialize() 已設定"
+    initialization_required:
+      type: boolean
+      description: |
+        true = 需執行 iMX.Framework 項目初始化流程。
+        成立條件：is_existing_project=false 且 imx_framework_detected=false。
+    clean_architecture_adherence:
+      type: string
+      enum: [full, partial, none, unknown]
+      description: "Clean Architecture 層級遵守程度"
+# ============================================================
+# 架構風格分析
+# ============================================================
+
+architecture:
+  type: object
+  properties:
+    style:
+      type: string
+      enum:
+        - clean-architecture # 完整 Clean Architecture 分層
+        - layered # 有分層但不完整
+        - feature-based # 按功能分目錄（無明確分層）
+        - monolithic # 無分層
+        - unknown # 無法判斷
+    ddd_applied:
+      type: boolean
+      description: "是否有明確的 DDD 物件（Entity / VO / DomainEvent / Repository 介面）"
+    deviations:
+      type: array
+      items:
+        type: string
+      description: "發現的架構偏差清單（空 list = 無偏差）"
+      example:
+        - "Infrastructure 層有直接引用 Application DTO"
+        - "Domain Entity 引用了 EF Core（違反 DIP）"
+
+# ============================================================
+# 現有測試基礎設施
+# ============================================================
+
+existing_tests:
+  type: object
+  properties:
+    unit:
+      type: object
+      properties:
+        framework:
+          type: string
+          enum: [jest, karma, pytest, xunit, null]
+          description: "單元測試框架"
+        config_path:
+          type: string
+          description: "測試設定檔相對路徑"
+          example: "jest.config.ts"
+        test_dir:
+          type: string
+          description: "測試檔案主目錄"
+          example: "src/"
+    integration:
+      type: object
+      properties:
+        framework:
+          type: string
+          enum:
+            - playwright # Angular / 通用 UI E2E
+            - xunit-webapplicationfactory # .NET API Integration Test
+            - pytest-httpx # Python API Integration Test
+            - null # 尚未設定
+          description: "整合測試框架"
+        config_path:
+          type: string
+          description: "整合測試設定檔相對路徑"
+          example: "playwright.config.ts"
+        test_dir:
+          type: string
+          description: "整合測試目錄"
+          example: "e2e/"
+        already_configured:
+          type: boolean
+          description: "true = Phase D 跳過安裝步驟，直接執行測試指令"
+
+# ============================================================
+# Lint / Format 設定
+# ============================================================
+
+lint:
+  type: object
+  properties:
+    configured:
+      type: boolean
+      description: "是否有 Lint 設定檔"
+    config_path:
+      type: string
+      description: "設定檔路徑"
+      example: ".eslintrc.json"
+
+# ============================================================
+# 自訂指令覆寫（null = 使用 Adapter 預設）
+# ============================================================
+
+custom_commands:
+  type: object
+  description: |
+    各 Phase 使用的指令覆寫。null 表示使用對應 Adapter 的預設指令。
+    優先順序：custom_commands > Adapter 預設指令
+  properties:
+    lint:
+      type: [string, null]
+      description: "覆寫 Adapter 的 lint 指令"
+      example: "npx eslint src --ext .ts,.html --format json"
+    build:
+      type: [string, null]
+      description: "覆寫 Adapter 的 build 指令"
+    test:
+      type: [string, null]
+      description: "覆寫 Adapter 的單元測試指令"
+      example: "ng test --include=src/app/core/**/*.spec.ts --watch=false"
+    integration_test:
+      type: [string, null]
+      description: "覆寫 Adapter 的整合測試指令（Phase D 使用）"
+      example: "npx playwright test --project=chromium --reporter=json"
+
+# ============================================================
+# 額外 Instructions 載入（Developer Phase 使用）
+# ============================================================
+
+instructions_override:
+  type: array
+  items:
+    type: string
+  description: |
+    除了 Adapter 預設 instructions 外，Developer Phase 需要額外載入的規範文件路徑。
+    用於導入有特殊規範文件的既有專案。
+    自動填入規則：
+    - Python + wecpy_detected → 自動加入 "frameworks/wec-py/instructions/wecpy.instructions.md"
+    - Angular WEC → 自動加入 "frameworks/wec-main/instructions/wecui.instructions.md"
+  example:
+    - "frameworks/wec-py/instructions/wecpy.instructions.md"
+    - "frameworks/wec-main/instructions/wecui.instructions.md"

@@ -1,0 +1,63 @@
+---
+# Inner Auto Loop — Spec 輸入模板
+# 使用此模板將需求餵給 @dev 觸發 Inner Loop
+# 格式：YAML + 自然語言混合
+---
+spec_version: "1.0"
+
+# =====================================================
+# 必填欄位
+# =====================================================
+
+title: "功能標題（用於 spec_hash 計算）"
+# 範例："新增用戶查詢 API"
+
+scope: auto
+# 選項：auto | angular-wec | dotnet | python
+# auto：由 Loop 自動偵測專案框架
+
+acceptance_criteria:
+  # 每個 AC 使用 Given-When-Then 格式
+  # spec_hash 使用 AC 前 3 個詞，請確保 AC 開頭詞語清晰
+  - |
+    Given 用戶已登入
+    When 呼叫 GET /api/users?name=Alice
+    Then 回傳符合條件的用戶清單，格式為 UserDto[]，HTTP 200
+  - |
+    Given 用戶未登入
+    When 呼叫 GET /api/users
+    Then 回傳 HTTP 401 Unauthorized
+
+# =====================================================
+# 選填欄位
+# =====================================================
+
+reference_task: "T-03"
+# plan.md 中的 Task 編號（若有 plan.md）
+# 若無 plan.md，AI 會直接根據 AC 開發
+
+constraints:
+  - "遵循現有的 DataService 繼承模式"
+  - "必須有單元測試，覆蓋率 >= 80%"
+  - "不得修改現有的 User Entity"
+
+out_of_scope:
+  - "用戶建立功能（另一個 Task）"
+  - "分頁功能（P1，下一個迭代）"
+
+context_files:
+  # Loop 開始前需要載入的現有程式碼
+  - "src/app/core/services/data.service.ts"
+  - "src/app/shared/models/user.model.ts"
+
+# =====================================================
+# 使用範例
+# =====================================================
+#
+# 在 Copilot Chat 中使用：
+# 1. 複製此模板並填入內容
+# 2. 輸入：@dev 請根據以下 spec 開始 Inner Loop：
+#    [貼上填好的 YAML]
+#
+# 或使用 @pm 產出 spec.md，@architect 產出 plan.md，
+# 再由 @dev 觸發 Loop 執行 plan.md 中的 Task。

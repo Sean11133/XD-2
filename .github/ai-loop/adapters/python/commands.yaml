@@ -1,0 +1,129 @@
+---
+# Python 3.10+ Adapter — Commands
+# getLintCommand / getTestCommand / getBuildCommand 的實作定義
+---
+framework: python
+adapter_version: "1.0"
+
+# ============================================================
+# Lint Command（Fast-Fail 第一道門）
+# ============================================================
+lint:
+  command: ruff
+  args: [check, src, --output-format, json]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 60
+  notes: |
+    ruff 是極速 Python linter（Rust 實作），取代 flake8 + black + isort。
+    輸出 JSON 格式供 error-parser.md 解析。
+    需要 ruff 已安裝：pip install ruff 或在 dev dependencies。
+    設定檔：pyproject.toml [tool.ruff] 或 ruff.toml。
+
+# Lint 備選（若無 ruff，使用 flake8）
+lint_fallback:
+  command: flake8
+  args: [src, --format, json, --output-file, flake8-report.json]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 60
+
+# Type Check（可選，作為 lint 的補充）
+typecheck:
+  command: mypy
+  args: [src, --ignore-missing-imports, --output, json]
+  cwd: "."
+  failOnNonZeroExit: false # mypy 錯誤為 WARN，不會 Fast-Fail
+  timeout_seconds: 120
+  notes: |
+    mypy 錯誤歸類為 WARN 不是 BLOCK（因型別標注完整度各專案不同）。
+    若 spec 明確要求型別安全，可將 failOnNonZeroExit 改為 true。
+
+# ============================================================
+# Build Command（Python 不需要編譯，返回 null）
+# ============================================================
+build: null
+# Python 不需要 build 步驟。
+# 若為 Poetry 專案且需要確認 package 結構：
+# build_optional:
+#   command: poetry
+#   args: [build]
+#   purpose: 確認 package 可正確打包（non-blocking）
+
+# ============================================================
+# Test Command
+# ============================================================
+test:
+  command: pytest
+  args:
+    - src
+    - tests
+    - -v
+    - --tb=short
+    - --json-report
+    - --json-report-file=pytest-report.json
+    - --cov=src
+    - --cov-report=json:coverage.json
+    - --cov-fail-under=80
+  cwd: "."
+  failOnNonZeroExit: false # 由 parseErrorOutput 判斷
+  timeout_seconds: 180
+  notes: |
+    --json-report 需要 pytest-json-report 套件。
+    --cov 需要 pytest-cov 套件。
+    --cov-fail-under=80：低於 80% 覆蓋率會輸出警告（歸類為 WARN）。
+
+# ============================================================
+# Integration Test Command（Phase D）
+# ============================================================
+integration_test:
+  command: pytest
+  args:
+    - tests/integration
+    - -v
+    - --tb=short
+    - --json-report
+    - "--json-report-file=integration-results.json"
+    - --asyncio-mode=auto
+  cwd: "."
+  failOnNonZeroExit: false
+  timeout_seconds: 300
+  notes: |
+    使用 pytest + httpx.AsyncClient + ASGITransport 執行整合測試。
+    --json-report 需要 pytest-json-report 套件。
+    --asyncio-mode=auto 需要 pytest-asyncio 套件。
+    測試目錄：tests/integration/。
+    相依套件：httpx >= 0.27、pytest-asyncio >= 0.23、pytest-json-report。
+
+# Integration Test 環境設定（Phase D 首次執行前提示）
+# Python 依賴由使用者手動安裝，Phase D 會自動結測設定
+# 若瘪已安裝，Phase D 會提示：pip install httpx pytest-asyncio pytest-json-report
+integration_test_setup: null
+
+# ============================================================
+# Instructions Path
+# ============================================================
+instructions:
+  path: ".github/instructions/python.instructions.md"
+  supplementary:
+    - ".github/standards/coding-standard-python.md"
+    - ".github/standards/ddd-guidelines.md"
+
+# ============================================================
+# 常用 Heal 指令（Tester Phase 修復用）
+# ============================================================
+heal_commands:
+  format_fix:
+    command: ruff
+    args: [format, src]
+    purpose: "自動格式化（black 相容）"
+
+  lint_fix:
+    command: ruff
+    args: [check, src, --fix]
+    purpose: "自動修復 ruff 可修復的 lint 問題"
+
+  sort_imports:
+    command: ruff
+    args: [check, src, --select, I, --fix]
+    purpose: "自動排序 imports（isort 相容）"

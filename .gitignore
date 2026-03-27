@@ -1,0 +1,23 @@
+# 遙測資料
+.wec-telemetry/
+
+# Node.js
+node_modules/
+dist/
+.vite/
+
+# 環境變數
+.env
+.env.local
+.env.*.local
+
+# 編輯器
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 測試覆蓋率
+coverage/

@@ -1,0 +1,188 @@
+---
+# Inner Auto Loop — Loop State Schema
+# 每個 Agent 完成 Phase 後必須輸出符合此 Schema 的 YAML 區塊
+# 詳見：instructions/ai-loop-protocols.instructions.md
+---
+$schema: "loop-state/v1"
+
+# ============================================================
+# 欄位定義
+# ============================================================
+
+round:
+  type: integer
+  minimum: 1
+  maximum: 5
+  description: "當前迴圈輪次（從 1 開始，超過 5 觸發 Escape Hatch）"
+
+phase:
+  type: string
+  enum: [init, developer, tester, reviewer, integration-tester, reporter]
+  description: "當前完成的 Phase"
+
+result:
+  type: string
+  enum: [PASS, FAIL, ESCAPED, SKIPPED, HUMAN_REQUIRED]
+  description: |
+    PASS:           此 Phase 成功通過
+    FAIL:           此 Phase 未通過，需要重試或回到前一 Phase
+    ESCAPED:        Escape Hatch 觸發（錯誤/震盪/安全），停止 Loop 等待人工修復
+    SKIPPED:        Fast-Fail 導致跳過（如 Lint FAIL 時 Test 為 SKIPPED）
+    HUMAN_REQUIRED: 人工介入閘道觸發（初始化/架構決策/授權確認），Loop 乾淨暫停，
+                    等待使用者輸入後以 @dev resume 繼續
+
+framework:
+  type: string
+  enum: [angular-wec, dotnet, python, unknown]
+  description: "偵測到的框架"
+
+spec_hash:
+  type: string
+  pattern: "^.+\\|.+$"
+  description: "spec 完整性校驗碼，格式：{title}|{AC1前3詞},{AC2前3詞}"
+  example: "用戶查詢功能|GET /api, 支援 name, 返回 UserDto"
+
+cumulative_changes:
+  type: array
+  description: "截至當前 Phase 的所有檔案變更（累積，非僅本 Phase）"
+  items:
+    type: object
+    required: [action, file]
+    properties:
+      action:
+        type: string
+        enum: [created, modified, deleted]
+      file:
+        type: string
+        description: "相對於專案根目錄的路徑"
+        example: "src/app/features/user/user-list.component.ts"
+
+errors:
+  type: array
+  description: "當前 Phase 的錯誤清單"
+  items:
+    type: object
+    required: [error_id, severity, tool, message]
+    properties:
+      error_id:
+        type: string
+        pattern: "^[a-z0-9]+-[a-z0-9-]+-[a-z0-9-]+-line\\d+$"
+        example: "eslint-no-any-usercard-line42"
+      severity:
+        type: string
+        enum: [BLOCK, WARN]
+      tool:
+        type: string
+        example: "eslint"
+      message:
+        type: string
+      file:
+        type: string
+      line:
+        type: integer
+
+warnings:
+  type: array
+  description: "當前 Phase 的警告（WARN 級別，不阻斷 Loop）"
+  items:
+    $ref: "#/errors/items"
+
+resolved_errors:
+  type: array
+  description: "在當前 Phase 被解決的歷史 error_id 清單"
+  items:
+    type: string
+    example: "eslint-no-any-usercard-line42"
+
+human_intervention:
+  type: object
+  description: "當 result=HUMAN_REQUIRED 時必填；描述需要人工決策的情境"
+  required: [gate_type, reason, resume_instruction]
+  properties:
+    gate_type:
+      type: string
+      enum:
+        [
+          FRAMEWORK_INIT,
+          ARCHITECTURE_DECISION,
+          SECURITY_REVIEW,
+          AUTHORIZATION_REQUIRED,
+        ]
+      description: |
+        FRAMEWORK_INIT:          框架尚未初始化，需先執行安裝/設定流程
+        ARCHITECTURE_DECISION:   需使用者在多個架構選項中做決策
+        SECURITY_REVIEW:         偵測到安全風險，需資深工程師/安全專家審查
+        AUTHORIZATION_REQUIRED:  即將執行高風險/不可逆操作，需使用者明確授權
+    reason:
+      type: string
+      description: "說明為何需要人工介入（具體描述，含檔案/設定細節）"
+      example: "偵測到 Angular WEC 專案但 upstream remote 未設定（fork_status: NOT_CONFIGURED）"
+    options:
+      type: array
+      description: "（可選）若為 ARCHITECTURE_DECISION，列出供使用者選擇的選項"
+      items:
+        type: object
+        properties:
+          id: { type: string }
+          label: { type: string }
+          description: { type: string }
+    resume_instruction:
+      type: string
+      description: "使用者完成人工操作後，如何繼續 Loop 的指令範例"
+      example: '@dev resume spec_hash: "..." continue_from: "Phase 0 完成後"'
+
+oscillation_flags:
+  type: array
+  description: "偵測到震盪的 error_id（同一 error_id 出現 3+ 次）"
+  items:
+    type: object
+    properties:
+      error_id:
+        type: string
+      appearances:
+        type: array
+        items:
+          type: string
+          example: "round_1_tester"
+      diagnosis:
+        type: string
+        description: "AI 對震盪原因的分析"
+
+context_budget:
+  type: object
+  description: "Token 使用量追蹤"
+  required: [tokens_used, budget_pct]
+  properties:
+    tokens_used:
+      type: integer
+    budget_pct:
+      type: string
+      pattern: "^\\d+%$"
+      example: "45%"
+
+# ============================================================
+# 輸出範例（PASS 狀態）
+# ============================================================
+# ---LOOP-STATE---
+# round: 1
+# phase: tester
+# result: PASS
+# framework: dotnet
+# spec_hash: "CachedUserRepository|執行緒安全,快取命中,過期清除"
+# cumulative_changes:
+#   - action: created
+#     file: src/Infrastructure/Repositories/CachedUserRepository.cs
+#   - action: created
+#     file: tests/Infrastructure/CachedUserRepositoryTests.cs
+# errors: []
+# warnings:
+#   - error_id: "dotnet-coverage-low-line0"
+#     severity: WARN
+#     tool: dotnet-test
+#     message: "Test coverage is 75%, below the 80% threshold"
+# resolved_errors: []
+# oscillation_flags: []
+# context_budget:
+#   tokens_used: 12500
+#   budget_pct: "34%"
+# ---END-LOOP-STATE---

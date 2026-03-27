@@ -1,0 +1,128 @@
+---
+# .NET 8 Adapter — Commands
+# getLintCommand / getTestCommand / getBuildCommand 的實作定義
+---
+framework: dotnet
+adapter_version: "1.0"
+
+# ============================================================
+# Lint Command（Fast-Fail 第一道門）
+# ============================================================
+lint:
+  command: dotnet
+  args: [format, --verify-no-changes, --report, dotnet-format-report.json]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 120
+  notes: |
+    --verify-no-changes：若有格式問題則返回非零退出碼（Fast-Fail）。
+    --report：輸出 JSON 報告供 error-parser.md 解析。
+    需要 .editorconfig 或 .clang-format 設定。
+
+# Lint + Roslyn Analyzer（含程式碼分析）
+lint_with_analyzers:
+  command: dotnet
+  args: [build, /p:TreatWarningsAsErrors=true, /p:EnforceCodeStyleInBuild=true]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 180
+  notes: |
+    同時執行 Roslyn Analyzers（StyleCop, etc.）。
+    比 dotnet format 更嚴格，可替代 lint 使用。
+
+# ============================================================
+# Build Command（Fast-Fail 第二道門）
+# ============================================================
+build:
+  command: dotnet
+  args: [build, --configuration, Debug, --no-restore]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 300
+  notes: |
+    --no-restore：假設已執行 dotnet restore，加速 build。
+    Debug 模式確保所有 Debug assertions 可見。
+
+# Build 含 Restore（第一次或 packages 變更後）
+build_with_restore:
+  command: dotnet
+  args: [build, --configuration, Debug]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 360
+
+# ============================================================
+# Test Command
+# ============================================================
+test:
+  command: dotnet
+  args:
+    - test
+    - --configuration
+    - Debug
+    - --no-build
+    - --logger
+    - "trx;LogFileName=test-results.trx"
+    - /p:CollectCoverage=true
+    - /p:CoverletOutputFormat=json
+    - /p:CoverletOutput=./coverage/
+  cwd: "."
+  failOnNonZeroExit: false # 由 parseErrorOutput 判斷
+  timeout_seconds: 300
+  notes: |
+    --no-build：Build 在 build command 已完成，避免重複。
+    TRX 格式供 error-parser.md 解析。
+    Coverlet 需要在 test 專案安裝 coverlet.collector。
+
+# ============================================================
+# Integration Test Command（Phase D）
+# ============================================================
+integration_test:
+  command: dotnet
+  args:
+    - test
+    - --filter
+    - "Category=Integration"
+    - --logger
+    - "trx;LogFileName=integration-results.trx"
+    - --logger
+    - "console;verbosity=detailed"
+  cwd: "."
+  failOnNonZeroExit: false
+  timeout_seconds: 300
+  notes: |
+    使用 WebApplicationFactory + xUnit 的整合測試。
+    --filter Category=Integration 笻選加了 [Trait("Category", "Integration")] 的測試。
+    TRX 格式供 error-parser.md 解析。
+    需要 Microsoft.AspNetCore.Mvc.Testing 已安裝於測試專案。
+    測試專案建議命名為 *.IntegrationTests.csproj。
+
+# Integration Test 環境設定（Phase D 首次執行前，或 already_configured=false 時）
+# .NET 不需要額外安裝步驟，依賴已作為 NuGet packages 管理
+integration_test_setup: null
+# 若整合測試專案尚未建立，參考 prompts/ai-loop-integration-test.prompt.md
+# Step 2 的 .NET 專案建立說明。
+
+# ============================================================
+# Instructions Path
+# ============================================================
+instructions:
+  path: ".github/instructions/csharp.instructions.md"
+  supplementary:
+    - ".github/standards/coding-standard-csharp.md"
+    - ".github/standards/clean-architecture.md"
+    - ".github/standards/ddd-guidelines.md"
+
+# ============================================================
+# 常用 Heal 指令（Tester Phase 修復用）
+# ============================================================
+heal_commands:
+  format_fix:
+    command: dotnet
+    args: [format]
+    purpose: "自動修復格式問題（dotnet format 不加 --verify-no-changes）"
+
+  restore:
+    command: dotnet
+    args: [restore]
+    purpose: "重新還原 NuGet packages（當 build 因 package 問題失敗）"

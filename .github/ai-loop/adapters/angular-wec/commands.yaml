@@ -1,0 +1,132 @@
+---
+# Angular WEC Adapter — Commands
+# getLintCommand / getTestCommand / getBuildCommand 的實作定義
+---
+framework: angular-wec
+adapter_version: "1.0"
+
+# ============================================================
+# Lint Command（Fast-Fail 第一道門）
+# ============================================================
+lint:
+  command: npx
+  args: [ng, lint, --format, json]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 120
+  notes: |
+    輸出格式為 JSON，由 error-parser.md 解析。
+    必須確保 .eslintrc.json 中有 @angular-eslint 設定。
+    若 ng lint 不存在，嘗試：npx eslint src --ext .ts --format json
+
+# Lint 備選指令（若 ng lint 未設定）
+lint_fallback:
+  command: npx
+  args: [eslint, src, --ext, .ts, --format, json]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 120
+
+# ============================================================
+# Build Command（Fast-Fail 第二道門）
+# ============================================================
+build:
+  command: npx
+  args: [ng, build, --configuration, development]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 300
+  notes: |
+    使用 development 模式（不優化，速度較快）。
+    主要確認 TypeScript 型別錯誤和編譯問題。
+    若不需要 build 確認（僅需型別檢查），可改用：
+    npx tsc --noEmit
+
+# TypeScript 型別檢查（build 的輕量替代）
+typecheck:
+  command: npx
+  args: [tsc, --noEmit]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 60
+
+# ============================================================
+# Test Command
+# ============================================================
+test:
+  command: npx
+  args: [ng, test, --watch, false, --code-coverage, --browsers, ChromeHeadless]
+  cwd: "."
+  failOnNonZeroExit: false # 由 parseErrorOutput 判斷 PASS/FAIL
+  timeout_seconds: 180
+  notes: |
+    --watch=false 確保測試只執行一次後退出。
+    --code-coverage 輸出覆蓋率報告到 coverage/ 目錄。
+    ChromeHeadless 需要 Chrome 已安裝。
+
+# 測試備選（CI 環境或無 Chrome 時）
+test_ci:
+  command: npx
+  args:
+    [
+      ng,
+      test,
+      --watch,
+      false,
+      --code-coverage,
+      --browsers,
+      ChromeHeadlessNoSandbox,
+    ]
+  cwd: "."
+  failOnNonZeroExit: false
+  timeout_seconds: 180
+
+# ============================================================
+# Integration Test Command（Phase D）
+# ============================================================
+integration_test:
+  command: npx
+  args: [playwright, test, --reporter, json]
+  cwd: "."
+  failOnNonZeroExit: false
+  timeout_seconds: 300
+  notes: |
+    使用 Playwright 執行整合測試。
+    output JSON 檔案供 error-parser.md 解析。
+    測試目錄：e2e/（由 playwright.config.ts 設定）。
+    結果列印到 stdout，由 parseErrorOutput 處理。
+
+# Integration Test 環境設定（Phase D 首次執行前，或 already_configured=false 時）
+integration_test_setup:
+  command: npx
+  args: [playwright, install, --with-deps, chromium]
+  cwd: "."
+  failOnNonZeroExit: true
+  timeout_seconds: 300
+  notes: |
+    首次執行前安裝 Playwright 瀏覽器。
+    --with-deps 一併安裝系統相依和（Linux CI 環境必要）。
+    若 already_configured=true，跳過此步驟。
+
+# ============================================================
+# Instructions Path
+# ============================================================
+instructions:
+  path: ".github/instructions/angular.instructions.md"
+  supplementary:
+    - ".github/standards/coding-standard-angular.md"
+    - ".github/standards/ddd-guidelines.md"
+
+# ============================================================
+# 常用 Heal 指令（Tester Phase 修復用）
+# ============================================================
+heal_commands:
+  format:
+    command: npx
+    args: [prettier, --write, "src/**/*.{ts,html,scss}"]
+    purpose: "格式化問題"
+
+  lint_fix:
+    command: npx
+    args: [eslint, src, --ext, .ts, --fix]
+    purpose: "自動修復 ESLint 可修復的問題"
