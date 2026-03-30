@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { LogPanel } from "../../src/components/LogPanel";
 import type { LogEntry } from "../../src/domain/observer";
+import type { DecoratedLogEntry } from "../../src/domain/observer/DecoratedLogEntry";
 
 const makeLog = (
   level: LogEntry["level"],
@@ -11,6 +12,19 @@ const makeLog = (
   message,
   timestamp: new Date("2026-01-01T10:00:00Z"),
 });
+
+function makeDecoratedLog(
+  message: string,
+  overrides: Partial<Pick<DecoratedLogEntry, "icon" | "styleHints">> = {},
+): DecoratedLogEntry {
+  return {
+    level: "INFO",
+    message,
+    timestamp: new Date("2026-01-01T10:00:00Z"),
+    styleHints: [],
+    ...overrides,
+  };
+}
 
 describe("LogPanel", () => {
   it("logs 為空時顯示「暫無日誌」提示", () => {
@@ -61,5 +75,75 @@ describe("LogPanel", () => {
     // 顯示最新 5 筆（訊息 5–9）
     expect(screen.queryByText("訊息 0")).toBeNull();
     expect(screen.getByText("訊息 9")).toBeTruthy();
+  });
+});
+
+describe("LogPanel — DecoratedLogEntry 支援", () => {
+  it("DecoratedLogEntry with icon → 顯示圖標", () => {
+    const entry = makeDecoratedLog("完成操作", {
+      icon: "✅",
+      styleHints: ["color-green", "bold"],
+    });
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    expect(screen.getByText("✅")).toBeTruthy();
+  });
+
+  it("DecoratedLogEntry with styleHints=['color-green','bold'] → 對應 CSS class 存在", () => {
+    const entry = makeDecoratedLog("完成", {
+      icon: "✅",
+      styleHints: ["color-green", "bold"],
+    });
+    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = container.querySelector(".text-emerald-600.font-bold");
+    expect(row).not.toBeNull();
+  });
+
+  it("DecoratedLogEntry with styleHints=['color-yellow'] → amber class 存在", () => {
+    const entry = makeDecoratedLog("警告", {
+      icon: "⚠️",
+      styleHints: ["color-yellow"],
+    });
+    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = container.querySelector(".text-amber-500");
+    expect(row).not.toBeNull();
+  });
+
+  it("DecoratedLogEntry with styleHints=['color-blue'] → blue class 存在", () => {
+    const entry = makeDecoratedLog("掃描", {
+      icon: "🔍",
+      styleHints: ["color-blue"],
+    });
+    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = container.querySelector(".text-blue-600");
+    expect(row).not.toBeNull();
+  });
+
+  it("DecoratedLogEntry with styleHints=['color-gray','italic'] → gray+italic class 存在", () => {
+    const entry = makeDecoratedLog("開始", {
+      icon: "▶",
+      styleHints: ["color-gray", "italic"],
+    });
+    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = container.querySelector(".text-slate-400.italic");
+    expect(row).not.toBeNull();
+  });
+
+  it("DecoratedLogEntry with empty styleHints → 使用 LEVEL_CLASS fallback（INFO→text-gray-600）", () => {
+    const entry = makeDecoratedLog("一般訊息", { styleHints: [] });
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = screen.getByText("一般訊息").closest("div");
+    expect(row?.className).toContain("text-gray-600");
+  });
+
+  it("混合 LogEntry 與 DecoratedLogEntry → 均正常渲染", () => {
+    const plain = makeLog("SUCCESS", "普通成功訊息");
+    const decorated = makeDecoratedLog("完成操作", {
+      icon: "✅",
+      styleHints: ["color-green", "bold"],
+    });
+    render(<LogPanel logs={[plain, decorated]} onClear={vi.fn()} />);
+    expect(screen.getByText("普通成功訊息")).toBeTruthy();
+    expect(screen.getByText("完成操作")).toBeTruthy();
+    expect(screen.getByText("✅")).toBeTruthy();
   });
 });
