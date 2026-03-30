@@ -8,7 +8,7 @@ interface FileTreeViewProps {
 
 export const FileTreeView: React.FC<FileTreeViewProps> = ({ root, matchedPaths }) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 font-mono">
+    <div className="font-mono">
       <TreeNodeItem
         node={root}
         level={0}

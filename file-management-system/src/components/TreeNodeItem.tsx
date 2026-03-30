@@ -28,7 +28,7 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
 
   const path = currentPath ?? node.name;
-  const indent = { paddingLeft: `${level * 1.5}rem` };
+  const indent = { paddingLeft: `${level * 1.25}rem` };
 
   // 搜尋篩選：matchedPaths 存在時，不在集合內的節點不顯示
   if (matchedPaths !== undefined && !matchedPaths.has(path)) {
@@ -43,16 +43,22 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     return (
       <div>
         <div
-          className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-gray-100 rounded px-1"
+          className="flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group"
           style={indent}
           onClick={() => setIsExpanded((prev) => !prev)}
         >
-          <span className="text-gray-500 w-4 text-xs select-none">
-            {isExpanded ? "▼" : "▶"}
+          <span
+            className={`inline-block w-3 flex-shrink-0 text-xs select-none text-slate-400 transition-transform duration-150${
+              isExpanded ? " rotate-90" : ""
+            }`}
+          >
+            ▶
           </span>
-          <span className="text-sm">{node.getDisplayInfo()}</span>
-          <span className="ml-2 text-xs text-gray-400 select-none">
-            ({sizeLabel})
+          <span className="flex-1 text-sm text-slate-700">
+            {node.getDisplayInfo()}
+          </span>
+          <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400 select-none opacity-0 transition-opacity group-hover:opacity-100">
+            {sizeLabel}
           </span>
         </div>
         {isExpanded && (
@@ -73,9 +79,12 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-1 py-0.5 px-1" style={indent}>
-      <span className="w-4" />
-      <span className="text-sm text-gray-700">{node.getDisplayInfo()}</span>
+    <div
+      className="flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors"
+      style={indent}
+    >
+      <span className="w-3 flex-shrink-0" />
+      <span className="text-sm text-slate-600">{node.getDisplayInfo()}</span>
     </div>
   );
 };

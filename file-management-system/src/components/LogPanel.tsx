@@ -13,6 +13,12 @@ const LEVEL_CLASS: Record<LogEntry["level"], string> = {
   WARNING: "text-yellow-600",
 };
 
+const LEVEL_DOT: Record<LogEntry["level"], string> = {
+  INFO: "bg-blue-400",
+  SUCCESS: "bg-green-500",
+  WARNING: "bg-yellow-400",
+};
+
 function formatTime(date: Date): string {
   return date.toTimeString().slice(0, 8); // HH:mm:ss
 }
@@ -33,30 +39,47 @@ export function LogPanel({ logs, onClear, maxLogs = 500 }: LogPanelProps) {
   }, [logs]);
 
   return (
-    <div className="rounded-lg border bg-white shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       {/* 標題列 */}
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <span className="text-sm font-semibold text-gray-700">📋 操作日誌</span>
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <span className="text-slate-600">📋</span>
+          <span className="text-sm font-semibold text-slate-700">操作日誌</span>
+          {logs.length > 0 && (
+            <span className="text-xs bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 font-medium">
+              {logs.length}
+            </span>
+          )}
+        </div>
         <button
           onClick={onClear}
-          className="rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
         >
           清除日誌
         </button>
       </div>
 
       {/* 日誌列表 */}
-      <div className="max-h-48 overflow-y-auto px-4 py-2 font-mono text-xs">
+      <div className="max-h-64 overflow-y-auto px-4 py-2 font-mono text-xs bg-slate-50/50">
         {displayLogs.length === 0 ? (
-          <p className="py-2 text-center text-gray-400">暫無日誌</p>
+          <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+            <span className="mb-1 text-2xl">📭</span>
+            <p>暫無日誌</p>
+          </div>
         ) : (
           displayLogs.map((entry, idx) => (
-            <div key={idx} className={`mb-0.5 ${LEVEL_CLASS[entry.level]}`}>
-              <span className="mr-2 text-gray-400">
+            <div
+              key={idx}
+              className={`flex items-start gap-2 py-0.5 ${LEVEL_CLASS[entry.level]}`}
+            >
+              <div
+                className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${LEVEL_DOT[entry.level]}`}
+              />
+              <span className="flex-shrink-0 text-slate-400">
                 {formatTime(entry.timestamp)}
               </span>
-              <span className="mr-2 font-semibold">[{entry.level}]</span>
-              <span>{entry.message}</span>
+              <span className="flex-shrink-0 font-semibold">[{entry.level}]</span>
+              <span className="break-all">{entry.message}</span>
             </div>
           ))
         )}
