@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { buildSampleTree } from "./data/sampleData";
 import { FileTreeView } from "./components/FileTreeView";
 import { ProgressBar } from "./components/ProgressBar";
@@ -12,6 +12,7 @@ import { DashboardObserver } from "./services/observers/DashboardObserver";
 import { exportToXml } from "./services/FileSystemXmlExporter";
 import { exportToJson } from "./services/exporters/JSONExporter";
 import { exportToMarkdown } from "./services/exporters/MarkdownExporter";
+import { countNodes } from "./services/exporters/countNodes";
 
 /** 格式化總大小，同 TreeNodeItem 規則（≥1024 KB 顯示 MB） */
 function formatSize(sizeKB: number): string {
@@ -22,27 +23,40 @@ function formatSize(sizeKB: number): string {
 }
 
 /**
- * 遞迴建立搜尋命中路徑集合（包含所有 ancestor 目錄路徑）
- * 回傳 true 表示該子樹內有命中節點
+ * 遞迴建立搜尋命中路徑集合，並透過 Subject 發佈掃描進度。
+ * Observer Pattern — 每走訪一個子節點，通知所有訂閱者（OCP：不修改既有 Observer 實作）
  */
-function buildMatchedPaths(
+function buildMatchedPathsWithProgress(
   dir: Directory,
   keyword: string,
   dirPath: string,
-  result: Set<string>
+  result: Set<string>,
+  subject: IProgressSubject,
+  total: number,
+  counter: { current: number },
+  operationName: string,
 ): boolean {
   const lower = keyword.toLowerCase();
-  let hasMatch =
-    dir.name.toLowerCase().includes(lower) && dir.name !== dirPath; // 根目錄名稱不算子節點
+  let hasMatch = false;
 
   for (const child of dir.getChildren()) {
     const childPath = `${dirPath}/${child.name}`;
+    counter.current++;
+    const percentage = Math.min(
+      100,
+      Math.round((counter.current / total) * 100),
+    );
+
     if (child.isDirectory()) {
-      const childHasMatch = buildMatchedPaths(
+      const childHasMatch = buildMatchedPathsWithProgress(
         child as Directory,
         keyword,
         childPath,
-        result
+        result,
+        subject,
+        total,
+        counter,
+        operationName,
       );
       if (child.name.toLowerCase().includes(lower) || childHasMatch) {
         result.add(childPath);
@@ -54,6 +68,16 @@ function buildMatchedPaths(
         hasMatch = true;
       }
     }
+
+    subject.notify({
+      phase: "scan",
+      operationName,
+      current: counter.current,
+      total,
+      percentage,
+      message: `掃描 ${child.name}`,
+      timestamp: new Date(),
+    });
   }
   return hasMatch;
 }
@@ -74,71 +98,142 @@ function App() {
   // 日誌面板 — 由 ConsoleObserver 透過 callback 更新
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  /**
-   * 將 Subject + Observer 配線、執行匹出、觸發下載封裝為一個共用流程。
-   * Callback 注入讓 Observer 不持有 React state（DIP）。
-   */
-  const runWithProgress = (
-    exportFn: (subject: IProgressSubject) => string,
-    filename: string,
-    mimeType: string,
-    operationLabel: string,
-  ) => {
-    setProgressPct(0);
-    setProgressDone(false);
-    setProgressOp(operationLabel);
+  // 搜尋命中路徑集合（useState，讓 performSearch 可在 Observer 回調後更新）
+  const [matchedPaths, setMatchedPaths] = useState<Set<string> | undefined>(
+    undefined,
+  );
 
-    const subject = new ProgressSubjectImpl();
-    const consoleObs = new ConsoleObserver((entry) =>
+  // 計算總大小與節點數（root 穩定，不重新建立）
+  const totalSize = useMemo(() => root.getSizeKB(), [root]);
+  const totalNodes = useMemo(() => countNodes(root), [root]);
+
+  /** 安全追加 log（上限 500 筆） */
+  const appendLog = useCallback(
+    (entry: LogEntry) =>
       setLogs((prev) =>
         prev.length >= 500 ? [...prev.slice(-499), entry] : [...prev, entry],
       ),
-    );
+    [],
+  );
+
+  /** 建立 Subject + 雙 Observer 並完成訂閱（共用邏輯，DRY） */
+  const createSubjectWithObservers = useCallback(() => {
+    const subject = new ProgressSubjectImpl();
+    const consoleObs = new ConsoleObserver(appendLog);
     const dashObs = new DashboardObserver((pct, done) => {
       setProgressPct(pct);
       setProgressDone(done);
     });
     subject.subscribe(consoleObs);
     subject.subscribe(dashObs);
+    return { subject, consoleObs, dashObs };
+  }, [appendLog]);
 
-    const result = exportFn(subject);
+  /**
+   * 配線 Subject + Observer、執行匯出、輸出至 console、觸發檔案下載。
+   * 開啟瀏覽器 DevTools (F12) → Console 分頁可查看完整匯出內容。
+   */
+  const runWithProgress = useCallback(
+    (
+      exportFn: (subject: IProgressSubject) => string,
+      filename: string,
+      mimeType: string,
+      operationLabel: string,
+    ) => {
+      setProgressPct(0);
+      setProgressDone(false);
+      setProgressOp(operationLabel);
 
-    subject.unsubscribe(consoleObs);
-    subject.unsubscribe(dashObs);
+      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
+      const result = exportFn(subject);
+      subject.unsubscribe(consoleObs);
+      subject.unsubscribe(dashObs);
 
-    const blob = new Blob([result], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+      // ── 輸出至瀏覽器 console（F12 → Console 可查看完整內容）──
+      console.group(`📤 [匯出結果] ${operationLabel}`);
+      console.log(result);
+      console.groupEnd();
 
-  // 計算總大小（根目錄不重新建立，直接讀取）
-  const totalSize = useMemo(() => root.getSizeKB(), [root]);
+      // ── 觸發實體檔案下載 ──
+      const blob = new Blob([result], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [createSubjectWithObservers],
+  );
 
-  // 搜尋命中路徑集合；keyword 為空時 undefined（全部顯示）
-  const matchedPaths = useMemo<Set<string> | undefined>(() => {
-    if (!keyword.trim()) return undefined;
-    const paths = new Set<string>();
-    const rootHasDescendants = buildMatchedPaths(root, keyword, root.name, paths);
-    // 根節點只要有任何命中就加入
-    if (rootHasDescendants || root.name.toLowerCase().includes(keyword.toLowerCase())) {
-      paths.add(root.name);
-    }
-    return paths;
-  }, [root, keyword]);
+  /**
+   * 搜尋功能整合 Observer Pattern。
+   * 走訪每個節點時由 Subject 發佈掃描進度，
+   * ConsoleObserver / DashboardObserver 以與匯出完全相同的機制接收（OCP）。
+   */
+  const performSearch = useCallback(
+    (kw: string) => {
+      setKeyword(kw);
+      if (!kw.trim()) {
+        setMatchedPaths(undefined);
+        return;
+      }
+
+      const opName = `搜尋「${kw}」`;
+      setProgressPct(0);
+      setProgressDone(false);
+      setProgressOp(opName);
+
+      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
+
+      subject.notify({
+        phase: "scan",
+        operationName: opName,
+        current: 0,
+        total: totalNodes,
+        percentage: 0,
+        message: `開始掃描，共 ${totalNodes} 個節點`,
+        timestamp: new Date(),
+      });
+
+      const paths = new Set<string>();
+      const counter = { current: 0 };
+      const rootHasDescendants = buildMatchedPathsWithProgress(
+        root,
+        kw,
+        root.name,
+        paths,
+        subject,
+        totalNodes,
+        counter,
+        opName,
+      );
+
+      if (
+        rootHasDescendants ||
+        root.name.toLowerCase().includes(kw.toLowerCase())
+      ) {
+        paths.add(root.name);
+      }
+
+      subject.unsubscribe(consoleObs);
+      subject.unsubscribe(dashObs);
+
+      setMatchedPaths(paths);
+    },
+    [root, totalNodes, createSubjectWithObservers],
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      setKeyword(inputValue);
+      performSearch(inputValue);
     }
   };
 
   const handleClear = () => {
     setInputValue("");
     setKeyword("");
+    setMatchedPaths(undefined);
     inputRef.current?.focus();
   };
 
@@ -147,7 +242,7 @@ function App() {
       (subject) => exportToXml(root, subject),
       "file-system.xml",
       "application/xml;charset=utf-8",
-      "正在匙出 XML...",
+      "匯出 XML",
     );
   };
 
@@ -156,7 +251,7 @@ function App() {
       (subject) => exportToJson(root, subject),
       "file-system.json",
       "application/json;charset=utf-8",
-      "正在匙出 JSON...",
+      "匯出 JSON",
     );
   };
 
@@ -165,86 +260,129 @@ function App() {
       (subject) => exportToMarkdown(root, subject),
       "file-system.md",
       "text/markdown;charset=utf-8",
-      "正在匙出 Markdown...",
+      "匯出 Markdown",
     );
   };
 
   const isSearchActive = keyword.trim().length > 0;
   const resultCount = matchedPaths
-    ? [...matchedPaths].filter((p) => p !== root.name && !p.includes("/") ? false : true).length
+    ? [...matchedPaths].filter((p) => p !== root.name).length
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold">📂 雲端檔案管理系統</h1>
-        <span className="text-sm text-gray-500">
-          總大小：<strong>{formatSize(totalSize)}</strong>
-        </span>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1 max-w-sm">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="輸入關鍵字後按 Enter 搜尋…"
-            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
+    <div className="min-h-screen bg-slate-100">
+      {/* ── Navbar ── */}
+      <header className="bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📂</span>
+            <div>
+              <h1 className="text-lg font-bold text-white leading-tight tracking-tight">
+                雲端檔案管理系統
+              </h1>
+              <p className="text-blue-200 text-xs">
+                Cloud File Management System
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg bg-white/10 px-4 py-2 text-center backdrop-blur-sm">
+            <p className="text-blue-200 text-xs font-medium">總容量</p>
+            <p className="text-white font-bold text-base">
+              {formatSize(totalSize)}
+            </p>
+          </div>
         </div>
-        {isSearchActive && (
-          <button
-            onClick={handleClear}
-            className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-100"
-          >
-            清除
-          </button>
-        )}
-        <button
-          onClick={handleExportXml}
-          className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          匯出 XML
-        </button>        <button
-          onClick={handleExportJson}
-          className="text-sm px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          匙出 JSON
-        </button>
-        <button
-          onClick={handleExportMarkdown}
-          className="text-sm px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          匙出 Markdown
-        </button>      </div>
+      </header>
 
-      {/* Progress Bar */}
-      <ProgressBar
-        percentage={progressPct}
-        isDone={progressDone}
-        operationName={progressOp}
-      />
+      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+        {/* ── Action Bar ── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-52">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                🔍
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="輸入關鍵字後按 Enter 搜尋..."
+                className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+              />
+            </div>
 
-      {/* Search status */}
-      {isSearchActive && (
-        <p className="text-xs text-gray-500 mb-2">
-          搜尋「{keyword}」共找到{" "}
-          <strong>{resultCount}</strong> 個節點
-        </p>
-      )}
+            {isSearchActive && (
+              <button
+                onClick={handleClear}
+                className="text-sm px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 transition-colors whitespace-nowrap"
+              >
+                ✕ 清除
+              </button>
+            )}
 
-      {/* Tree */}
-      <FileTreeView root={root} matchedPaths={matchedPaths} />
+            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
 
-      {/* Log Panel */}
-      <div className="mt-4">
+            {/* Export buttons */}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleExportXml}
+                className="text-sm px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+              >
+                🗂 XML
+              </button>
+              <button
+                onClick={handleExportJson}
+                className="text-sm px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+              >
+                📊 JSON
+              </button>
+              <button
+                onClick={handleExportMarkdown}
+                className="text-sm px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 active:bg-violet-800 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+              >
+                📝 Markdown
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Progress Bar ── */}
+        <ProgressBar
+          percentage={progressPct}
+          isDone={progressDone}
+          operationName={progressOp}
+        />
+
+        {/* ── File Tree Card ── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <span>🌲</span>
+              <span className="text-sm font-semibold text-slate-700">
+                檔案樹
+              </span>
+            </div>
+            {isSearchActive ? (
+              <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-200 font-medium">
+                搜尋「{keyword}」· 找到 {resultCount} 個節點
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400">
+                共 {totalNodes} 個節點
+              </span>
+            )}
+          </div>
+          <div className="p-4">
+            <FileTreeView root={root} matchedPaths={matchedPaths} />
+          </div>
+        </div>
+
+        {/* ── Log Panel ── */}
         <LogPanel logs={logs} onClear={() => setLogs([])} />
-      </div>
+      </main>
     </div>
   );
 }
