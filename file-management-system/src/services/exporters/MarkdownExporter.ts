@@ -1,5 +1,7 @@
 import type { Directory } from "../../domain/Directory";
+import type { IProgressSubject } from "../../domain/observer/IProgressSubject";
 import { BaseExporterTemplate } from "./BaseExporterTemplate";
+import { countNodes } from "./countNodes";
 
 /**
  * Concrete Exporter — 將檔案系統樹序列化為 Markdown 縮排列表
@@ -75,8 +77,15 @@ class MarkdownExporter extends BaseExporterTemplate {
  * 對外公開的便利函式：接收根目錄，回傳完整 Markdown 字串。
  * 呼叫端不需要知道 MarkdownExporter 的存在。
  */
-export function exportToMarkdown(root: Directory): string {
+export function exportToMarkdown(
+  root: Directory,
+  subject?: IProgressSubject,
+): string {
   const exporter = new MarkdownExporter();
+  if (subject) {
+    exporter.setProgressSubject(subject, countNodes(root), "MarkdownExporter");
+    exporter.notifyStart();
+  }
   root.accept(exporter);
   return exporter.getResult();
 }

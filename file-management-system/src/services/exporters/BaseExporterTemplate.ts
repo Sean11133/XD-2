@@ -3,6 +3,7 @@ import type { WordDocument } from "../../domain/WordDocument";
 import type { ImageFile } from "../../domain/ImageFile";
 import type { TextFile } from "../../domain/TextFile";
 import type { Directory } from "../../domain/Directory";
+import type { IProgressSubject } from "../../domain/observer/IProgressSubject";
 
 /**
  * Template Method Pattern — 匯出骨架抽象基類
@@ -16,6 +17,60 @@ import type { Directory } from "../../domain/Directory";
 export abstract class BaseExporterTemplate implements IFileSystemVisitor {
   protected readonly _lines: string[] = [];
   protected _indentLevel = 0;
+
+  // ─── Observer 支援（Composition，可選；不影響 Template Method 骨架）──────
+  private _subject: IProgressSubject | null = null;
+  private _totalNodes = 0;
+  private _currentNode = 0;
+  private _operationName = "";
+
+  /**
+   * 掛載 Subject 與操作詮釋資料，啟用進度通知。
+   * 若未呼叫此方法，所有 _notifyProgress 為 no-op，行為與修改前完全相同。
+   */
+  setProgressSubject(
+    subject: IProgressSubject,
+    totalNodes: number,
+    operationName: string,
+  ): void {
+    this._subject = subject;
+    this._totalNodes = totalNodes;
+    this._operationName = operationName;
+    this._currentNode = 0;
+  }
+
+  /** 發佈操作開始事件（percentage=0）；由便利函式在 accept() 之前呼叫。*/
+  notifyStart(): void {
+    if (!this._subject) return;
+    this._subject.notify({
+      phase: "export",
+      operationName: this._operationName,
+      current: 0,
+      total: this._totalNodes,
+      percentage: 0,
+      message: `開始匯出，共 ${this._totalNodes} 個節點`,
+      timestamp: new Date(),
+    });
+  }
+
+  /** 每個節點走訪完成後呼叫一次，percentage 達 100 表示操作完成。*/
+  protected _notifyProgress(message: string): void {
+    if (!this._subject || this._totalNodes === 0) return;
+    this._currentNode++;
+    const percentage = Math.min(
+      100,
+      Math.round((this._currentNode / this._totalNodes) * 100),
+    );
+    this._subject.notify({
+      phase: "export",
+      operationName: this._operationName,
+      current: this._currentNode,
+      total: this._totalNodes,
+      percentage,
+      message,
+      timestamp: new Date(),
+    });
+  }
 
   /** 回傳 _indentLevel × 2 空格的縮排字串 */
   protected indent(): string {
@@ -77,13 +132,16 @@ export abstract class BaseExporterTemplate implements IFileSystemVisitor {
   visitDirectory(node: Directory): void {
     const escapedName = this.escape(node.name);
     const sizeKB = node.getSizeKB();
-    this._lines.push(this.renderDirOpen(escapedName, sizeKB, this._indentLevel));
+    this._lines.push(
+      this.renderDirOpen(escapedName, sizeKB, this._indentLevel),
+    );
     this._indentLevel++;
     for (const child of node.getChildren()) {
       child.accept(this);
     }
     this._indentLevel--;
     this._lines.push(this.renderDirClose(this._indentLevel));
+    this._notifyProgress(`目錄：${node.name}`);
   }
 
   /** WordDocument 骨架：escape 所有字串屬性 → 組裝 escapedAttrs → renderLeaf */
@@ -94,7 +152,10 @@ export abstract class BaseExporterTemplate implements IFileSystemVisitor {
       createdAt: node.createdAt.toISOString(),
       pageCount: String(node.pageCount),
     };
-    this._lines.push(this.renderLeaf("WordDocument", escapedAttrs, this._indentLevel));
+    this._lines.push(
+      this.renderLeaf("WordDocument", escapedAttrs, this._indentLevel),
+    );
+    this._notifyProgress(`文件：${node.fileName}`);
   }
 
   /** ImageFile 骨架：escape 所有字串屬性 → 組裝 escapedAttrs → renderLeaf */
@@ -106,7 +167,10 @@ export abstract class BaseExporterTemplate implements IFileSystemVisitor {
       width: String(node.width),
       height: String(node.height),
     };
-    this._lines.push(this.renderLeaf("ImageFile", escapedAttrs, this._indentLevel));
+    this._lines.push(
+      this.renderLeaf("ImageFile", escapedAttrs, this._indentLevel),
+    );
+    this._notifyProgress(`圖片：${node.fileName}`);
   }
 
   /** TextFile 骨架：escape 所有字串屬性 → 組裝 escapedAttrs → renderLeaf */
@@ -117,12 +181,17 @@ export abstract class BaseExporterTemplate implements IFileSystemVisitor {
       createdAt: node.createdAt.toISOString(),
       encoding: this.escape(node.encoding),
     };
-    this._lines.push(this.renderLeaf("TextFile", escapedAttrs, this._indentLevel));
+    this._lines.push(
+      this.renderLeaf("TextFile", escapedAttrs, this._indentLevel),
+    );
+    this._notifyProgress(`文字檔：${node.fileName}`);
   }
 
   /** 回傳最終組裝字串（header 在 getHeader() 中定義，預設為空） */
   getResult(): string {
     const header = this.getHeader();
-    return header ? [header, ...this._lines].join("\n") : this._lines.join("\n");
+    return header
+      ? [header, ...this._lines].join("\n")
+      : this._lines.join("\n");
   }
 }

@@ -1,5 +1,7 @@
 import type { Directory } from "../domain/Directory";
+import type { IProgressSubject } from "../domain/observer/IProgressSubject";
 import { BaseExporterTemplate } from "./exporters/BaseExporterTemplate";
+import { countNodes } from "./exporters/countNodes";
 
 /**
  * Concrete Exporter (refactored) — 將檔案系統樹序列化為 XML 字串
@@ -58,8 +60,15 @@ class FileSystemXmlExporter extends BaseExporterTemplate {
  * 對外公開的便利函式：接收根目錄，回傳完整 XML 字串
  * 呼叫端不需要知道 FileSystemXmlExporter 的存在
  */
-export function exportToXml(root: Directory): string {
+export function exportToXml(
+  root: Directory,
+  subject?: IProgressSubject,
+): string {
   const exporter = new FileSystemXmlExporter();
+  if (subject) {
+    exporter.setProgressSubject(subject, countNodes(root), "XmlExporter");
+    exporter.notifyStart();
+  }
   root.accept(exporter);
   return exporter.getResult();
 }

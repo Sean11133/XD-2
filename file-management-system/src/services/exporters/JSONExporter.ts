@@ -1,5 +1,7 @@
 import type { Directory } from "../../domain/Directory";
+import type { IProgressSubject } from "../../domain/observer/IProgressSubject";
 import { BaseExporterTemplate } from "./BaseExporterTemplate";
+import { countNodes } from "./countNodes";
 
 /**
  * Concrete Exporter — 將檔案系統樹序列化為 JSON 字串
@@ -73,18 +75,23 @@ class JSONExporter extends BaseExporterTemplate {
    */
   override getResult(): string {
     const raw = super.getResult();
-    return raw
-      .replace(/,(\n\s*[}\]])/g, "$1")
-      .replace(/,\s*$/, "");
+    return raw.replace(/,(\n\s*[}\]])/g, "$1").replace(/,\s*$/, "");
   }
 }
 
 /**
  * 對外公開的便利函式：接收根目錄，回傳完整 JSON 字串。
- * 呼叫端不需要知道 JSONExporter 的存在。
+ * subject 為可選參數（不傳時行為與修改前完全相同，OCP）。
  */
-export function exportToJson(root: Directory): string {
+export function exportToJson(
+  root: Directory,
+  subject?: IProgressSubject,
+): string {
   const exporter = new JSONExporter();
+  if (subject) {
+    exporter.setProgressSubject(subject, countNodes(root), "JSONExporter");
+    exporter.notifyStart();
+  }
   root.accept(exporter);
   return exporter.getResult();
 }
