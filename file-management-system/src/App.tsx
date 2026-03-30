@@ -1,18 +1,36 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { buildSampleTree } from "./data/sampleData";
 import { FileTreeView } from "./components/FileTreeView";
-import { ProgressBar } from "./components/ProgressBar";
+import { DashboardPanel } from "./components/DashboardPanel";
 import { LogPanel } from "./components/LogPanel";
 import { Directory } from "./domain/Directory";
 import type { LogEntry } from "./domain/observer";
+import type { DecoratedLogEntry } from "./domain/observer/DecoratedLogEntry";
+import type { DashboardPanelProps } from "./domain/observer/DashboardPanelProps";
 import type { IProgressSubject } from "./domain/observer/IProgressSubject";
+import type { ProgressEvent } from "./domain/observer/ProgressEvent";
 import { ProgressSubjectImpl } from "./services/observers/ProgressSubjectImpl";
 import { ConsoleObserver } from "./services/observers/ConsoleObserver";
 import { DashboardObserver } from "./services/observers/DashboardObserver";
+import {
+  SuccessDecorator,
+  WarningDecorator,
+  ScanDecorator,
+  StartDecorator,
+  LogEntryDecoratorChain,
+} from "./services/decorators";
 import { exportToXml } from "./services/FileSystemXmlExporter";
 import { exportToJson } from "./services/exporters/JSONExporter";
 import { exportToMarkdown } from "./services/exporters/MarkdownExporter";
 import { countNodes } from "./services/exporters/countNodes";
+
+// Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
+const DEFAULT_CHAIN = new LogEntryDecoratorChain([
+  new SuccessDecorator(),
+  new WarningDecorator(),
+  new ScanDecorator(),
+  new StartDecorator(),
+]);
 
 /** 格式化總大小，同 TreeNodeItem 規則（≥1024 KB 顯示 MB） */
 function formatSize(sizeKB: number): string {
@@ -90,13 +108,22 @@ function App() {
   const [keyword, setKeyword] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 進度條 — 由 DashboardObserver 透過 callback 更新
-  const [progressPct, setProgressPct] = useState(0);
-  const [progressDone, setProgressDone] = useState(false);
-  const [progressOp, setProgressOp] = useState("");
+  // 進度面板 — 始終顯示，由 DashboardObserver 透過 callback 更新
+  const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps>({
+    operationName: "等待操作",
+    percentage: 0,
+    current: 0,
+    total: 0,
+    message: "請選擇匯出格式或輸入搜尋關鍵字",
+    isDone: false,
+    phase: "export",
+  });
 
   // 日誌面板 — 由 ConsoleObserver 透過 callback 更新
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<Array<LogEntry | DecoratedLogEntry>>([]);
+
+  // 進度動畫計時器 — 允許取消未完成的動畫（換搜尋或匯出時清除舊計時器）
+  const animationTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // 搜尋命中路徑集合（useState，讓 performSearch 可在 Observer 回調後更新）
   const [matchedPaths, setMatchedPaths] = useState<Set<string> | undefined>(
@@ -109,7 +136,7 @@ function App() {
 
   /** 安全追加 log（上限 500 筆） */
   const appendLog = useCallback(
-    (entry: LogEntry) =>
+    (entry: LogEntry | DecoratedLogEntry) =>
       setLogs((prev) =>
         prev.length >= 500 ? [...prev.slice(-499), entry] : [...prev, entry],
       ),
@@ -119,10 +146,9 @@ function App() {
   /** 建立 Subject + 雙 Observer 並完成訂閱（共用邏輯，DRY） */
   const createSubjectWithObservers = useCallback(() => {
     const subject = new ProgressSubjectImpl();
-    const consoleObs = new ConsoleObserver(appendLog);
-    const dashObs = new DashboardObserver((pct, done) => {
-      setProgressPct(pct);
-      setProgressDone(done);
+    const consoleObs = new ConsoleObserver(appendLog, DEFAULT_CHAIN);
+    const dashObs = new DashboardObserver((props) => {
+      setDashboardProps(props);
     });
     subject.subscribe(consoleObs);
     subject.subscribe(dashObs);
@@ -140,21 +166,25 @@ function App() {
       mimeType: string,
       operationLabel: string,
     ) => {
-      setProgressPct(0);
-      setProgressDone(false);
-      setProgressOp(operationLabel);
+      // 取消上一次未完成的動畫
+      animationTimers.current.forEach(clearTimeout);
+      animationTimers.current = [];
 
-      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
-      const result = exportFn(subject);
-      subject.unsubscribe(consoleObs);
-      subject.unsubscribe(dashObs);
+      // ── Phase 1: 同步匯出，用輕量 Subject 收集所有進度事件 ──
+      const collectedEvents: ProgressEvent[] = [];
+      const collectingSubject: IProgressSubject = {
+        subscribe: () => {},
+        unsubscribe: () => {},
+        notify: (event) => collectedEvents.push(event),
+      };
+      const result = exportFn(collectingSubject);
 
       // ── 輸出至瀏覽器 console（F12 → Console 可查看完整內容）──
       console.group(`📤 [匯出結果] ${operationLabel}`);
       console.log(result);
       console.groupEnd();
 
-      // ── 觸發實體檔案下載 ──
+      // ── 觸發實體檔案下載（立即，不等動畫）──
       const blob = new Blob([result], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -162,6 +192,20 @@ function App() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+
+      // ── Phase 2: 非同步回放進度事件，讓 DashboardPanel 逐步動畫 ──
+      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
+      const interval = Math.max(20, Math.floor(600 / collectedEvents.length));
+      collectedEvents.forEach((event, idx) => {
+        const timer = setTimeout(() => {
+          subject.notify(event);
+          if (idx === collectedEvents.length - 1) {
+            subject.unsubscribe(consoleObs);
+            subject.unsubscribe(dashObs);
+          }
+        }, idx * interval);
+        animationTimers.current.push(timer);
+      });
     },
     [createSubjectWithObservers],
   );
@@ -174,19 +218,27 @@ function App() {
   const performSearch = useCallback(
     (kw: string) => {
       setKeyword(kw);
+      // 取消上一次未完成的動畫
+      animationTimers.current.forEach(clearTimeout);
+      animationTimers.current = [];
+
       if (!kw.trim()) {
         setMatchedPaths(undefined);
+        setDashboardProps(null);
         return;
       }
 
       const opName = `搜尋「${kw}」`;
-      setProgressPct(0);
-      setProgressDone(false);
-      setProgressOp(opName);
 
-      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
+      // ── Phase 1: 同步走訪，用輕量 Subject 收集所有進度事件 ──
+      const collectedEvents: ProgressEvent[] = [];
+      const collectingSubject: IProgressSubject = {
+        subscribe: () => {},
+        unsubscribe: () => {},
+        notify: (event) => collectedEvents.push(event),
+      };
 
-      subject.notify({
+      collectedEvents.push({
         phase: "scan",
         operationName: opName,
         current: 0,
@@ -203,7 +255,7 @@ function App() {
         kw,
         root.name,
         paths,
-        subject,
+        collectingSubject,
         totalNodes,
         counter,
         opName,
@@ -216,10 +268,34 @@ function App() {
         paths.add(root.name);
       }
 
-      subject.unsubscribe(consoleObs);
-      subject.unsubscribe(dashObs);
+      // 加入完成事件（確保進度達到 100%，修正根節點不計入 counter 導致的 91% 問題）
+      const matchedCount = [...paths].filter((p) => p !== root.name).length;
+      collectedEvents.push({
+        phase: "scan",
+        operationName: opName,
+        current: totalNodes,
+        total: totalNodes,
+        percentage: 100,
+        message: `掃描完成，找到 ${matchedCount} 個相符節點`,
+        timestamp: new Date(),
+      });
 
+      // 立即更新檔案樹（不等動畫完成）
       setMatchedPaths(paths);
+
+      // ── Phase 2: 非同步回放進度事件，讓 DashboardPanel 逐步動畫 ──
+      const { subject, consoleObs, dashObs } = createSubjectWithObservers();
+      const interval = Math.max(20, Math.floor(600 / collectedEvents.length));
+      collectedEvents.forEach((event, idx) => {
+        const timer = setTimeout(() => {
+          subject.notify(event);
+          if (idx === collectedEvents.length - 1) {
+            subject.unsubscribe(consoleObs);
+            subject.unsubscribe(dashObs);
+          }
+        }, idx * interval);
+        animationTimers.current.push(timer);
+      });
     },
     [root, totalNodes, createSubjectWithObservers],
   );
@@ -349,12 +425,8 @@ function App() {
           </div>
         </div>
 
-        {/* ── Progress Bar ── */}
-        <ProgressBar
-          percentage={progressPct}
-          isDone={progressDone}
-          operationName={progressOp}
-        />
+        {/* ── Dashboard Panel ── */}
+        <DashboardPanel {...dashboardProps} />
 
         {/* ── File Tree Card ── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
