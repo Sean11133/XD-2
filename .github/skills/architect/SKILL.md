@@ -58,12 +58,14 @@ description: |
 
 從 spec.md 的「技術約束」或「技術棧」段落識別專案類型：
 
-| 偵測條件                      | 專案類型           |
-| ----------------------------- | ------------------ |
-| 提及 C# / .NET / ASP.NET      | .NET 後端          |
-| 提及 Angular / TypeScript     | Angular 前端       |
-| 提及 Python / FastAPI / Flask | Python 後端        |
-| 同時包含前後端                | 複合型（Monorepo） |
+| 偵測條件                         | 專案類型           |
+| -------------------------------- | ------------------ |
+| 提及 C# / .NET / ASP.NET         | .NET 後端          |
+| 提及 Angular / TypeScript        | Angular 前端       |
+| 提及 React / JSX / Next.js / CRA | React 前端         |
+| 提及 Vue / Nuxt                  | Vue 前端           |
+| 提及 Python / FastAPI / Flask    | Python 後端        |
+| 同時包含前後端                   | 複合型（Monorepo） |
 
 #### 2b. 載入對應規範
 
@@ -80,11 +82,12 @@ description: |
 
 **語言特定（按技術棧）：**
 
-| 技術棧    | 規範檔案                               | 關注重點                            |
-| --------- | -------------------------------------- | ----------------------------------- |
-| C# / .NET | `standards/coding-standard-csharp.md`  | 命名慣例、async/await、EF Core 規範 |
-| Angular   | `standards/coding-standard-angular.md` | Standalone 元件、OnPush、RxJS 規範  |
-| Python    | `standards/coding-standard-python.md`  | 命名慣例、Type Hints、pytest 規範   |
+| 技術棧                             | 規範檔案                                | 關注重點                                                     |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| C# / .NET                          | `standards/coding-standard-csharp.md`   | 命名慣例、async/await、EF Core 規範                          |
+| 任何前端框架（Angular/React/Vue…） | `standards/coding-standard-frontend.md` | 框架選型原則、Web First、Table First、圖表規範、可維護性要求 |
+| Angular（附加載入）                | `standards/coding-standard-angular.md`  | Standalone 元件、OnPush、RxJS 規範                           |
+| Python                             | `standards/coding-standard-python.md`   | 命名慣例、Type Hints、pytest 規範                            |
 
 **框架特定（按 spec 描述或使用者確認）：**
 

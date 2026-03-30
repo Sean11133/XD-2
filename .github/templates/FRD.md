@@ -25,14 +25,15 @@
 
 ### 適用規範清單
 
-| 類別     | 規範文件                              | 關鍵約束摘要                                                      |
-| -------- | ------------------------------------- | ----------------------------------------------------------------- |
-| 架構原則 | `standards/clean-architecture.md`     | （摘要：如依賴方向 外層→內層、Domain Layer 禁止引用任何技術框架） |
-| DDD 建模 | `standards/ddd-guidelines.md`         | （摘要：如 Aggregate 保持小而聚焦、跨 Context 使用 ACL）          |
-| 設計模式 | `standards/design-patterns.md`        | （摘要：如本專案適用的模式候選及選用理由）                        |
-| SOLID    | `standards/solid-principles.md`       | （摘要：如 DIP 應用於 Repository 介面、ISP 限制介面粒度）         |
-| 語言規範 | `standards/coding-standard-{lang}.md` | （摘要：如命名慣例、必須啟用的語言功能、禁止的寫法）              |
-| 框架規範 | `frameworks/{name}/contributing.md`   | （摘要：如強制基底類別、繼承深度限制、初始化順序、禁止行為）      |
+| 類別     | 規範文件                                | 關鍵約束摘要                                                                                        |
+| -------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 架構原則 | `standards/clean-architecture.md`       | （摘要：如依賴方向 外層→內層、Domain Layer 禁止引用任何技術框架）                                   |
+| DDD 建模 | `standards/ddd-guidelines.md`           | （摘要：如 Aggregate 保持小而聚焦、跨 Context 使用 ACL）                                            |
+| 設計模式 | `standards/design-patterns.md`          | （摘要：如本專案適用的模式候選及選用理由）                                                          |
+| SOLID    | `standards/solid-principles.md`         | （摘要：如 DIP 應用於 Repository 介面、ISP 限制介面粒度）                                           |
+| 前端規範 | `standards/coding-standard-frontend.md` | （摘要：如框架選型原則、Web First、Table First、圖表套件、AI 開發要求）— **前端專案必填，不限框架** |
+| 語言規範 | `standards/coding-standard-{lang}.md`   | （摘要：如命名慣例、必須啟用的語言功能、禁止的寫法）                                                |
+| 框架規範 | `frameworks/{name}/contributing.md`     | （摘要：如強制基底類別、繼承深度限制、初始化順序、禁止行為）                                        |
 
 > 📐 **指引**：僅列出本專案**實際適用**的規範。「關鍵約束摘要」欄位須從規範原文中**提取具體條目**，而非泛泛描述。此表也作為 Phase 5 品質自檢的對照基準。
 
