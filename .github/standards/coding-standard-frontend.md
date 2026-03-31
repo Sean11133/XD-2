@@ -99,7 +99,32 @@ CIM 智慧製造中心的前端系統，主要屬於：
 - 不過度裝飾
 - 適合長時間觀看
 
-> ✅ 建議使用成熟圖表套件（不限品牌，但需穩定）
+#### 優先推薦套件：AG Charts
+
+> ✅ **首選：[AG Charts](https://charts.ag-grid.com/)（不限前端框架，支援 Angular / React / Vue / 原生 JS）**
+
+| 版本       | 說明                                                                     | 預設使用 |
+| ---------- | ------------------------------------------------------------------------ | -------- |
+| Community  | 免費開源，涵蓋常用圖表類型（折線、長條、圓餅、散點、面積圖等），無需授權 | ✅ 預設  |
+| Enterprise | 進階功能（財務圖、組合圖、動畫、context menu、資料下鑽等），需商業授權   | 需授權   |
+
+**選用理由：**
+
+- 與 AG Grid 原生整合，可直接在 Grid 內嵌圖表（Integrated Charts）
+- 支援互動式操作（zoom、tooltip、crosshair）
+- API 一致，跨框架使用方式相同，降低切換框架成本
+- 資料量極大（> 100 萬筆）或高度客製化需求，可評估改用 Apache ECharts
+
+**各框架安裝：**
+
+```
+Angular : npm install ag-charts-angular ag-charts-community
+React   : npm install ag-charts-react ag-charts-community
+Vue     : npm install ag-charts-vue3 ag-charts-community
+原生 JS : npm install ag-charts-community
+```
+
+> 🔑 **若需 AG Charts Enterprise 授權，請聯絡 `MK22 HYCHENG5` 詢問授權事宜。**
 
 ### 4.3 表格導向設計（Table First）
 
@@ -110,6 +135,33 @@ CIM 智慧製造中心的前端系統，主要屬於：
   - 篩選
   - 明確欄位命名
 - 避免過度客製、難以維護的表格實作方式
+
+#### 優先推薦套件：AG Grid
+
+> ✅ **首選：[AG Grid](https://www.ag-grid.com/)（不限前端框架，支援 Angular / React / Vue / 原生 JS）**
+
+| 版本       | 說明                                                                                                  | 預設使用 |
+| ---------- | ----------------------------------------------------------------------------------------------------- | -------- |
+| Community  | 免費開源，支援排序、篩選、分頁、虛擬捲動、欄位調整、CSV 匯出等核心功能，完全滿足大多數 CIM 系統需求   | ✅ 預設  |
+| Enterprise | 進階功能（資料分組、Pivot、Server-side Row Model、Excel 匯出、圖表整合、Row Grouping 等），需商業授權 | 需授權   |
+
+**選用理由：**
+
+- 效能優異，支援百萬筆資料虛擬捲動（Virtual Scrolling），不需額外分頁優化
+- 開箱即用的排序 / 篩選 / 欄位 resize / 固定欄，無需自行實作
+- 跨框架 API 一致，降低人員切換框架的學習成本
+- Community 版本即可滿足本中心絕大多數使用情境
+
+**各框架安裝：**
+
+```
+Angular : npm install ag-grid-angular ag-grid-community
+React   : npm install ag-grid-react ag-grid-community
+Vue     : npm install ag-grid-vue3 ag-grid-community
+原生 JS : npm install ag-grid-community
+```
+
+> 🔑 **若需 AG Grid Enterprise 授權，請聯絡 `MK22 HYCHENG5` 詢問授權事宜。**
 
 ### 4.4 CRUD 表單與流程畫面
 
@@ -134,5 +186,7 @@ CIM 智慧製造中心的前端系統，主要屬於：
 - ✅ 不限制框架，但限制混亂與不可維護性
 - ✅ 以 Web 為主，RWD 為輔
 - ✅ 以圖表、表格、CRUD 流程為設計核心
+- ✅ 表格優先使用 AG Grid Community；需進階功能（Excel 匯出、Pivot、Server-side）聯絡 MK22 HYCHENG5 取得 Enterprise 授權
+- ✅ 圖表優先使用 AG Charts Community；需進階功能（財務圖、動畫、下鑽）聯絡 MK22 HYCHENG5 取得 Enterprise 授權
 - ✅ 技術選型需考量團隊與長期維運
 - ✅ AI 是工具，不是替代思考

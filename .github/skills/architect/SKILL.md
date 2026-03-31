@@ -82,12 +82,12 @@ description: |
 
 **語言特定（按技術棧）：**
 
-| 技術棧                             | 規範檔案                                | 關注重點                                                     |
-| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
-| C# / .NET                          | `standards/coding-standard-csharp.md`   | 命名慣例、async/await、EF Core 規範                          |
-| 任何前端框架（Angular/React/Vue…） | `standards/coding-standard-frontend.md` | 框架選型原則、Web First、Table First、圖表規範、可維護性要求 |
-| Angular（附加載入）                | `standards/coding-standard-angular.md`  | Standalone 元件、OnPush、RxJS 規範                           |
-| Python                             | `standards/coding-standard-python.md`   | 命名慣例、Type Hints、pytest 規範                            |
+| 技術棧                             | 規範檔案                                | 關注重點                                                                                             |
+| ---------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| C# / .NET                          | `standards/coding-standard-csharp.md`   | 命名慣例、async/await、EF Core 規範                                                                  |
+| 任何前端框架（Angular/React/Vue…） | `standards/coding-standard-frontend.md` | 框架選型原則、Web First、Table First（AG Grid Community）、圖表（AG Charts Community）、可維護性要求 |
+| Angular（附加載入）                | `standards/coding-standard-angular.md`  | Standalone 元件、OnPush、RxJS 規範                                                                   |
+| Python                             | `standards/coding-standard-python.md`   | 命名慣例、Type Hints、pytest 規範                                                                    |
 
 **框架特定（按 spec 描述或使用者確認）：**
 
