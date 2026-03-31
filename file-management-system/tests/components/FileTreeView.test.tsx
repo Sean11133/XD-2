@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { FileTreeView } from "../../src/components/FileTreeView";
 import { buildSampleTree } from "../../src/data/sampleData";
 import { Directory } from "../../src/domain/Directory";
 import { WordDocument } from "../../src/domain/WordDocument";
+import { TextFile } from "../../src/domain/TextFile";
 
 describe("FileTreeView", () => {
   it("渲染根目錄名稱", () => {
@@ -61,5 +62,34 @@ describe("FileTreeView", () => {
     dir.addChild(new WordDocument("only.docx", 10, new Date("2026-01-01"), 1));
     render(<FileTreeView root={dir} />);
     expect(screen.getByText(/only\.docx/)).toBeInTheDocument();
+  });
+});
+
+describe("FileTreeView — onSelect 選取機制", () => {
+  it("點擊檔案節點時 onSelect callback 被呼叫，帶正確 node 與 parent", () => {
+    const onSelect = vi.fn();
+    const root = new Directory("root");
+    const file = new TextFile("hello.txt", 10, new Date("2026-01-01"), "UTF-8");
+    root.addChild(file);
+    render(<FileTreeView root={root} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByText(/hello\.txt/));
+    expect(onSelect).toHaveBeenCalledOnce();
+    const [calledNode, calledParent] = onSelect.mock.calls[0];
+    expect(calledNode).toBe(file);
+    expect(calledParent).toBe(root);
+  });
+
+  it("點擊目錄節點時 onSelect callback 被呼叫", () => {
+    const onSelect = vi.fn();
+    const root = new Directory("root");
+    const subDir = new Directory("sub");
+    root.addChild(subDir);
+    render(<FileTreeView root={root} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByText(/sub/));
+    expect(onSelect).toHaveBeenCalledOnce();
+    const [calledNode] = onSelect.mock.calls[0];
+    expect(calledNode).toBe(subDir);
   });
 });
