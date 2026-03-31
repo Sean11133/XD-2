@@ -3,7 +3,11 @@ import { buildSampleTree } from "./data/sampleData";
 import { FileTreeView } from "./components/FileTreeView";
 import { DashboardPanel } from "./components/DashboardPanel";
 import { LogPanel } from "./components/LogPanel";
+import { ToolbarPanel } from "./components/ToolbarPanel";
 import { Directory } from "./domain/Directory";
+import { Clipboard } from "./domain/Clipboard";
+import type { FileSystemNode } from "./domain/FileSystemNode";
+import type { ISortStrategy } from "./domain/strategies/ISortStrategy";
 import type { LogEntry } from "./domain/observer";
 import type { DecoratedLogEntry } from "./domain/observer/DecoratedLogEntry";
 import type { DashboardPanelProps } from "./domain/observer/DashboardPanelProps";
@@ -23,6 +27,11 @@ import { exportToXml } from "./services/FileSystemXmlExporter";
 import { exportToJson } from "./services/exporters/JSONExporter";
 import { exportToMarkdown } from "./services/exporters/MarkdownExporter";
 import { countNodes } from "./services/exporters/countNodes";
+import { CommandInvoker } from "./services/CommandInvoker";
+import { CopyCommand } from "./services/commands/CopyCommand";
+import { PasteCommand } from "./services/commands/PasteCommand";
+import { DeleteCommand } from "./services/commands/DeleteCommand";
+import { SortCommand } from "./services/commands/SortCommand";
 
 // Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
 const DEFAULT_CHAIN = new LogEntryDecoratorChain([
@@ -107,6 +116,21 @@ function App() {
   const [inputValue, setInputValue] = useState("");
   const [keyword, setKeyword] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── Command Pattern 狀態 ──
+  const [selectedNode, setSelectedNode] = useState<FileSystemNode | null>(null);
+  const [selectedParent, setSelectedParent] = useState<Directory | null>(null);
+  const [treeVersion, setTreeVersion] = useState(0);
+  const invoker = useMemo(() => new CommandInvoker(), []);
+  const clipboard = useMemo(() => Clipboard.getInstance(), []);
+  // canUndo / canRedo 以 treeVersion 為依賴，確保每次操作後重新計算
+  const canUndo = treeVersion >= 0 && invoker.canUndo;
+  const canRedo = treeVersion >= 0 && invoker.canRedo;
+  const canPaste =
+    (treeVersion >= 0) &&
+    clipboard.hasNode() &&
+    selectedNode !== null &&
+    selectedNode.isDirectory();
 
   // 進度面板 — 始終顯示，由 DashboardObserver 透過 callback 更新
   const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps>({
@@ -300,6 +324,80 @@ function App() {
     [root, totalNodes, createSubjectWithObservers],
   );
 
+  // ── Command handlers ──────────────────────────────────────────────────────
+
+  const bumpTree = () => setTreeVersion((v) => v + 1);
+
+  const handleSelect = useCallback(
+    (node: FileSystemNode, parent: Directory | null) => {
+      setSelectedNode(node);
+      setSelectedParent(parent);
+    },
+    [],
+  );
+
+  const handleCopy = useCallback(() => {
+    if (!selectedNode) return;
+    invoker.execute(new CopyCommand(selectedNode, clipboard), false);
+    appendLog({ level: "INFO", message: `📋 複製：${selectedNode.name}`, timestamp: new Date() });
+    bumpTree();
+  }, [selectedNode, invoker, clipboard, appendLog]);
+
+  const handlePaste = useCallback(() => {
+    if (!selectedNode?.isDirectory()) return;
+    const sourceName = clipboard.getNode()?.name ?? "";
+    const cmd = new PasteCommand(clipboard, selectedNode as Directory);
+    invoker.execute(cmd);
+    const pastedName = cmd.pastedNodeName ?? sourceName;
+    const renamed = pastedName !== sourceName;
+    appendLog({
+      level: "SUCCESS",
+      message: renamed
+        ? `📌 貼上：${pastedName}（"${sourceName}" 重新命名）→ ${selectedNode.name}`
+        : `📌 貼上：${pastedName} → ${selectedNode.name}`,
+      timestamp: new Date(),
+    });
+    bumpTree();
+  }, [selectedNode, invoker, clipboard, appendLog]);
+
+  const handleDelete = useCallback(() => {
+    if (!selectedNode || !selectedParent) return;
+    const deletedName = selectedNode.name;
+    invoker.execute(new DeleteCommand(selectedNode, selectedParent));
+    setSelectedNode(null);
+    setSelectedParent(null);
+    appendLog({ level: "WARNING", message: `🗑 刪除：${deletedName}`, timestamp: new Date() });
+    bumpTree();
+  }, [selectedNode, selectedParent, invoker, appendLog]);
+
+  const handleSort = useCallback(
+    (strategy: ISortStrategy) => {
+      if (!selectedNode?.isDirectory()) return;
+      const dir = selectedNode as Directory;
+      const snapshot = [...dir.getChildren()];
+      invoker.execute(new SortCommand(dir, strategy, snapshot));
+      appendLog({ level: "INFO", message: `🔀 排序：${dir.name} 依 ${strategy.label}`, timestamp: new Date() });
+      bumpTree();
+    },
+    [selectedNode, invoker, appendLog],
+  );
+
+  const handleUndo = useCallback(() => {
+    const desc = invoker.undoDescription;
+    invoker.undo();
+    if (desc) appendLog({ level: "INFO", message: `↩ 復原：${desc}`, timestamp: new Date() });
+    bumpTree();
+  }, [invoker, appendLog]);
+
+  const handleRedo = useCallback(() => {
+    const desc = invoker.redoDescription;
+    invoker.redo();
+    if (desc) appendLog({ level: "INFO", message: `↪ 重做：${desc}`, timestamp: new Date() });
+    bumpTree();
+  }, [invoker, appendLog]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       performSearch(inputValue);
@@ -428,6 +526,20 @@ function App() {
         {/* ── Dashboard Panel ── */}
         <DashboardPanel {...dashboardProps} />
 
+        {/* ── Toolbar Panel ── */}
+        <ToolbarPanel
+          selectedNode={selectedNode}
+          canPaste={canPaste}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          onDelete={handleDelete}
+          onSort={handleSort}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+        />
+
         {/* ── File Tree Card ── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
@@ -448,7 +560,13 @@ function App() {
             )}
           </div>
           <div className="p-4">
-            <FileTreeView root={root} matchedPaths={matchedPaths} />
+            <FileTreeView
+              key={treeVersion}
+              root={root}
+              matchedPaths={matchedPaths}
+              onSelect={handleSelect}
+              selectedNode={selectedNode}
+            />
           </div>
         </div>
 

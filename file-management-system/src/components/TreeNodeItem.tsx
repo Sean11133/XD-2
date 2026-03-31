@@ -17,6 +17,12 @@ interface TreeNodeItemProps {
   matchedPaths?: Set<string>;
   /** 當前節點在樹狀結構中的完整路徑（如 "root/docs/report.docx"） */
   currentPath?: string;
+  /** 節點選取 callback，帶節點本身與父目錄（根節點父目錄為 null） */
+  onSelect?: (node: FileSystemNode, parent: Directory | null) => void;
+  /** 目前被選取的節點（用於高亮比對） */
+  selectedNode?: FileSystemNode | null;
+  /** 此節點的父目錄（由 FileTreeView 向下傳遞） */
+  parentDir?: Directory | null;
 }
 
 export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
@@ -24,6 +30,9 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   level,
   matchedPaths,
   currentPath,
+  onSelect,
+  selectedNode,
+  parentDir = null,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -35,6 +44,16 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     return null;
   }
 
+  const isSelected = selectedNode === node;
+  const selectedClass = isSelected
+    ? "bg-blue-100 border-l-2 border-blue-500"
+    : "";
+
+  const handleNodeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(node, parentDir);
+  };
+
   if (node.isDirectory()) {
     const dir = node as Directory;
     const children = dir.getChildren();
@@ -43,9 +62,12 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     return (
       <div>
         <div
-          className="flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group"
+          className={`flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group ${selectedClass}`}
           style={indent}
-          onClick={() => setIsExpanded((prev) => !prev)}
+          onClick={(e) => {
+            setIsExpanded((prev) => !prev);
+            handleNodeClick(e);
+          }}
         >
           <span
             className={`inline-block w-3 flex-shrink-0 text-xs select-none text-slate-400 transition-transform duration-150${
@@ -70,6 +92,9 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                 level={level + 1}
                 matchedPaths={matchedPaths}
                 currentPath={`${path}/${child.name}`}
+                onSelect={onSelect}
+                selectedNode={selectedNode}
+                parentDir={dir}
               />
             ))}
           </div>
@@ -80,8 +105,9 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
   return (
     <div
-      className="flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors"
+      className={`flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer ${selectedClass}`}
       style={indent}
+      onClick={handleNodeClick}
     >
       <span className="w-3 flex-shrink-0" />
       <span className="text-sm text-slate-600">{node.getDisplayInfo()}</span>
