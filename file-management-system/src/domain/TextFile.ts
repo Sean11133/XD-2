@@ -18,4 +18,8 @@ export class TextFile extends File {
   accept(visitor: IFileSystemVisitor): void {
     visitor.visitTextFile(this);
   }
+
+  clone(newName?: string): TextFile {
+    return new TextFile(newName ?? this.fileName, this.sizeKB, this.createdAt, this.encoding);
+  }
 }

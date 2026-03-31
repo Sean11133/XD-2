@@ -18,4 +18,8 @@ export class WordDocument extends File {
   accept(visitor: IFileSystemVisitor): void {
     visitor.visitWordDocument(this);
   }
+
+  clone(newName?: string): WordDocument {
+    return new WordDocument(newName ?? this.fileName, this.sizeKB, this.createdAt, this.pageCount);
+  }
 }

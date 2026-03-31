@@ -5,3 +5,6 @@ export { ImageFile } from "./ImageFile";
 export { TextFile } from "./TextFile";
 export { Directory } from "./Directory";
 export type { IFileSystemVisitor } from "./IFileSystemVisitor";
+export { Clipboard } from "./Clipboard";
+export type { ICommand } from "./commands";
+export type { ISortStrategy } from "./strategies";

@@ -19,4 +19,8 @@ export class ImageFile extends File {
   accept(visitor: IFileSystemVisitor): void {
     visitor.visitImageFile(this);
   }
+
+  clone(newName?: string): ImageFile {
+    return new ImageFile(newName ?? this.fileName, this.sizeKB, this.createdAt, this.width, this.height);
+  }
 }
