@@ -21,3 +21,21 @@ Thumbs.db
 
 # 測試覆蓋率
 coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# SQLite 資料庫
+*.db
+*.db-shm
+*.db-wal
+
+# 日誌
+backend/log/
+*.log
