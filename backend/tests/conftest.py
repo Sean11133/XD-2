@@ -1,11 +1,18 @@
 """Shared pytest fixtures."""
 from __future__ import annotations
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# wecpy 強制初始化順序（必須在任何 app.* 模組匯入之前執行）
+os.environ.setdefault("IMX_ENV", "PILOT")
+from wecpy.config_manager import ConfigManager
+ConfigManager("config.yaml")
 
 from app.database import Base, get_db
 from app.main import app

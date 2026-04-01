@@ -2,27 +2,31 @@
 
 Run:
     cd backend
-    python seed.py
+    IMX_ENV=PILOT python seed.py
 
 Idempotent: skips insertion if root directory already exists.
 """
 from __future__ import annotations
 
-import logging
+import os
 import sys
 from datetime import datetime, timezone
 
+# wecpy 強制初始化順序（必須連續兩行最先執行）
+os.environ.setdefault("IMX_ENV", "PILOT")
+from wecpy.config_manager import ConfigManager
+ConfigManager("config.yaml")
+
+from wecpy.log_manager import LogManager
+log = LogManager.get_logger()
+
 # Must be executed from backend/ so DB path resolves correctly
-from app.config import get_settings  # noqa: F401 — triggers settings init
 from app.database import Base, SessionLocal, engine
 import app.models  # noqa: F401 — populate Base.metadata
 
 from app.models.node import NodeModel
 from app.models.label import LabelModel
 from app.models.node import node_label_association
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-log = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 

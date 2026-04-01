@@ -1,15 +1,20 @@
 """FastAPI application entry point.
 
-Startup order (wecpy-compatible convention):
-1. ConfigManager-equivalent init (pydantic-settings)
-2. Logging
-3. App assembly
+Startup order (wecpy 強制初始化順序):
+1. ConfigManager init — 必須連續兩行最先執行（不得御）
+2. LogManager        — 取得 logger
+3. App assembly      — 其後才可匯入其他模組
 """
 from __future__ import annotations
 
-import logging
-import logging.config
+# ── wecpy 強制初始化順序（最先連續兩行，不可插入任何程式碼）─────────────────────
+from wecpy.config_manager import ConfigManager
+ConfigManager("config.yaml")
 
+from wecpy.log_manager import LogManager
+log = LogManager.get_logger()
+
+# ── 其他 imports（必須在 wecpy 初始化之後）────────────────────────────────────
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,14 +23,7 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.routers import labels_router, nodes_router
 
-# ── Logging setup ──────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-log = logging.getLogger(__name__)
-
-# ── Settings (replaces wecpy ConfigManager in local/test env) ─────────────────
+# ── Settings ───────────────────────────────────────────────────────────────────
 settings = get_settings()
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────

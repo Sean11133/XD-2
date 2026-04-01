@@ -1,0 +1,17 @@
+[2026-04-01 11:59:30.947] config_manager.py:_record_usage_wecpy_log:236 INFO 1794182f-7e3c-4d07-9cb0-2859d31ce620 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:00:10.033] config_manager.py:_record_usage_wecpy_log:236 INFO 67147ff9-c242-4acb-af5d-384fef3fcc8b - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:00:38.490] config_manager.py:_record_usage_wecpy_log:236 INFO 502ff7ae-792e-4917-a70d-4e5f854c97e8 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:00:39.476] config_manager.py:_record_usage_wecpy_log:236 INFO 502ff7ae-792e-4917-a70d-4e5f854c97e8 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:00:40.190] main.py:<module>:66 INFO 502ff7ae-792e-4917-a70d-4e5f854c97e8 - 1.0.0 File Management API started ¡X %s
+[2026-04-01 12:01:01.174] config_manager.py:_record_usage_wecpy_log:236 INFO 04e7f7ac-ebbb-4be8-8bbf-19beb7a4ceaf - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:01:01.425] config_manager.py:_record_usage_wecpy_log:236 INFO 04e7f7ac-ebbb-4be8-8bbf-19beb7a4ceaf - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:01:01.847] main.py:<module>:66 INFO 04e7f7ac-ebbb-4be8-8bbf-19beb7a4ceaf - 1.0.0 File Management API started ¡X %s
+[2026-04-01 12:01:26.919] config_manager.py:_record_usage_wecpy_log:236 INFO 10704be7-76d8-43d3-ab28-c40520d219b1 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:01:27.277] config_manager.py:_record_usage_wecpy_log:236 INFO 10704be7-76d8-43d3-ab28-c40520d219b1 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:01:27.741] main.py:<module>:66 INFO 10704be7-76d8-43d3-ab28-c40520d219b1 - 1.0.0 File Management API started ¡X %s
+[2026-04-01 12:03:18.811] config_manager.py:_record_usage_wecpy_log:236 INFO 61207cf9-3d54-4b58-80a4-45f887ba3b2b - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:03:19.065] config_manager.py:_record_usage_wecpy_log:236 INFO 61207cf9-3d54-4b58-80a4-45f887ba3b2b - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:03:19.480] main.py:<module>:66 INFO 61207cf9-3d54-4b58-80a4-45f887ba3b2b - 1.0.0 File Management API started ¡X %s
+[2026-04-01 12:03:41.362] config_manager.py:_record_usage_wecpy_log:236 INFO 75be45e8-0003-4e55-bca5-c751288acf49 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:03:41.671] config_manager.py:_record_usage_wecpy_log:236 INFO 75be45e8-0003-4e55-bca5-c751288acf49 - iMX_Core_Python:1.10.0 iMX_Core_Python_Usage
+[2026-04-01 12:03:42.056] main.py:<module>:66 INFO 75be45e8-0003-4e55-bca5-c751288acf49 - 1.0.0 File Management API started ¡X %s
