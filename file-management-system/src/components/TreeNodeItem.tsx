@@ -50,9 +50,12 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   }
 
   const isSelected = selectedNode === node;
-  const selectedClass = isSelected
-    ? "bg-blue-100 border-l-2 border-blue-500"
-    : "";
+  const selectedStyle: React.CSSProperties = isSelected
+    ? {
+        background: "var(--bg-selected)",
+        borderLeft: "2px solid var(--accent)",
+      }
+    : {};
 
   const handleNodeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -67,21 +70,20 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     return (
       <div>
         <div
-          className={`flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group ${selectedClass}`}
-          style={indent}
+          className={`flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group`}
+          style={{ ...indent, ...selectedStyle }}
           onClick={(e) => {
             setIsExpanded((prev) => !prev);
             handleNodeClick(e);
           }}
         >
           <span
-            className={`inline-block w-3 flex-shrink-0 text-xs select-none text-slate-400 transition-transform duration-150${
-              isExpanded ? " rotate-90" : ""
-            }`}
+            className={`inline-block w-3 flex-shrink-0 text-xs select-none transition-transform duration-150${isExpanded ? " rotate-90" : ""}`}
+            style={{ color: "var(--text-muted)" }}
           >
             ▶
           </span>
-          <span className="flex-1 text-sm text-slate-700">
+          <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>
             {node.getDisplayInfo()}
           </span>
           {labels.length > 0 && (
@@ -101,13 +103,19 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                 </span>
               ))}
               {labels.length > 2 && (
-                <span className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-slate-100 text-slate-500">
+                <span
+                  className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none"
+                  style={{ background: "var(--border)", color: "var(--text-muted)" }}
+                >
                   +{labels.length - 2}
                 </span>
               )}
             </div>
           )}
-          <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400 select-none opacity-0 transition-opacity group-hover:opacity-100">
+          <span
+            className="ml-1 rounded px-1.5 py-0.5 text-xs select-none opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ background: "var(--bg-surface2)", color: "var(--text-muted)" }}
+          >
             {sizeLabel}
           </span>
         </div>
@@ -134,12 +142,12 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
   return (
     <div
-      className={`flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer ${selectedClass}`}
-      style={indent}
+      className={`flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer`}
+      style={{ ...indent, ...selectedStyle }}
       onClick={handleNodeClick}
     >
       <span className="w-3 flex-shrink-0" />
-      <span className="text-sm text-slate-600">{node.getDisplayInfo()}</span>
+      <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{node.getDisplayInfo()}</span>
       {labels.length > 0 && (
         <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
           {labels.slice(0, 2).map((label) => (
@@ -157,7 +165,10 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             </span>
           ))}
           {labels.length > 2 && (
-            <span className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-slate-100 text-slate-500">
+            <span
+              className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none"
+              style={{ background: "var(--border)", color: "var(--text-muted)" }}
+            >
               +{labels.length - 2}
             </span>
           )}
