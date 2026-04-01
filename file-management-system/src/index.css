@@ -1,1 +1,91 @@
 @import "tailwindcss";
+
+/* ── Theme Variables ── */
+:root {
+  --bg-app:       #f1f5f9;
+  --bg-surface:   #ffffff;
+  --bg-surface2:  #f8fafc;
+  --bg-hover:     #f1f5f9;
+  --bg-selected:  #dbeafe;
+  --border:       #e2e8f0;
+  --border-light: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary:#475569;
+  --text-muted:   #94a3b8;
+  --accent:       #2563eb;
+  --accent-light: #eff6ff;
+  --header-from:  #1e3a8a;
+  --header-to:    #1e40af;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg-app:       #0f172a;
+  --bg-surface:   #1e293b;
+  --bg-surface2:  #162032;
+  --bg-hover:     #263348;
+  --bg-selected:  #1e3a5f;
+  --border:       #334155;
+  --border-light: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary:#94a3b8;
+  --text-muted:   #64748b;
+  --accent:       #60a5fa;
+  --accent-light: #1e3a5f;
+  --header-from:  #0f172a;
+  --header-to:    #1e293b;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Dark mode Tailwind class overrides ──
+   Covers components that still use Tailwind utility classes (TreeNodeItem, etc.)
+   !important needed to override Tailwind's generated specificity              */
+[data-theme="dark"] {
+  & .bg-white             { background-color: var(--bg-surface)  !important; }
+  & .bg-slate-50          { background-color: var(--bg-surface2) !important; }
+  & .bg-slate-100         { background-color: var(--bg-surface2) !important; }
+  & .bg-slate-200         { background-color: var(--border)      !important; }
+  & .bg-violet-50         { background-color: #1a1730            !important; }
+  & .bg-violet-100        { background-color: #1e1b3a            !important; }
+  & .bg-blue-100          { background-color: var(--bg-selected) !important; }
+
+  & .border-slate-100     { border-color: var(--border-light) !important; }
+  & .border-slate-200     { border-color: var(--border)       !important; }
+  & .border-slate-300     { border-color: var(--border)       !important; }
+  & .border-violet-100    { border-color: #2d2068             !important; }
+  & .border-violet-300    { border-color: #4c1d95             !important; }
+  & .border-blue-500      { border-color: var(--accent)       !important; }
+
+  & .text-slate-400       { color: var(--text-muted)      !important; }
+  & .text-slate-500       { color: var(--text-secondary)  !important; }
+  & .text-slate-600       { color: var(--text-secondary)  !important; }
+  & .text-slate-700       { color: var(--text-primary)    !important; }
+  & .text-slate-800       { color: var(--text-primary)    !important; }
+  & .text-gray-600        { color: var(--text-secondary)  !important; }
+  & .text-violet-700      { color: #c4b5fd                !important; }
+  & .text-violet-600      { color: #a78bfa                !important; }
+  & .text-green-600       { color: #34d399                !important; }
+  & .text-emerald-600     { color: #34d399                !important; }
+
+  & .hover\:bg-blue-50:hover    { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-slate-50:hover   { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-slate-100:hover  { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-violet-50:hover  { background-color: #1e1b3a         !important; }
+  & .hover\:bg-violet-200:hover { background-color: #2d2068         !important; }
+  & .hover\:text-slate-700      { color: var(--text-primary)        !important; }
+  & .hover\:text-slate-600      { color: var(--text-secondary)      !important; }
+}
+
