@@ -5,7 +5,6 @@ import { DashboardPanel } from "./components/DashboardPanel";
 import { LogPanel } from "./components/LogPanel";
 import { ToolbarPanel } from "./components/ToolbarPanel";
 import { Directory } from "./domain/Directory";
-import { Clipboard } from "./domain/Clipboard";
 import type { FileSystemNode } from "./domain/FileSystemNode";
 import type { ISortStrategy } from "./domain/strategies/ISortStrategy";
 import type { LogEntry } from "./domain/observer";
@@ -27,15 +26,7 @@ import { exportToXml } from "./services/FileSystemXmlExporter";
 import { exportToJson } from "./services/exporters/JSONExporter";
 import { exportToMarkdown } from "./services/exporters/MarkdownExporter";
 import { countNodes } from "./services/exporters/countNodes";
-import { CommandInvoker } from "./services/CommandInvoker";
-import { CopyCommand } from "./services/commands/CopyCommand";
-import { PasteCommand } from "./services/commands/PasteCommand";
-import { DeleteCommand } from "./services/commands/DeleteCommand";
-import { SortCommand } from "./services/commands/SortCommand";
-import { LabelTagCommand } from "./services/commands/LabelTagCommand";
-import { RemoveLabelCommand } from "./services/commands/RemoveLabelCommand";
-import { tagMediator } from "./services/TagMediator";
-import { labelFactory } from "./domain/labels/LabelFactory";
+import { FileSystemFacade } from "./services/FileSystemFacade";
 import type { Label } from "./domain/labels/Label";
 import { LabelPanel } from "./components/LabelPanel";
 
@@ -65,11 +56,12 @@ function buildLabelMatchedPaths(
   label: Label,
   dirPath: string,
   result: Set<string>,
+  getLabels: (node: import("./domain/FileSystemNode").FileSystemNode) => import("./domain/labels/Label").Label[],
 ): boolean {
   let hasMatch = false;
   for (const child of dir.getChildren()) {
     const childPath = `${dirPath}/${child.name}`;
-    const childLabels = tagMediator.getLabelsOf(child);
+    const childLabels = getLabels(child);
     const childHasLabel = childLabels.some((l) => l.id === label.id);
     if (child.isDirectory()) {
       const descMatch = buildLabelMatchedPaths(
@@ -77,6 +69,7 @@ function buildLabelMatchedPaths(
         label,
         childPath,
         result,
+        getLabels,
       );
       if (descMatch || childHasLabel) {
         result.add(childPath);
@@ -160,20 +153,15 @@ function App() {
   const [keyword, setKeyword] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Command Pattern 狀態 ──
+  // ── Facade（統一入口）+ Command Pattern 狀態 ──
   const [selectedNode, setSelectedNode] = useState<FileSystemNode | null>(null);
   const [selectedParent, setSelectedParent] = useState<Directory | null>(null);
   const [treeVersion, setTreeVersion] = useState(0);
-  const invoker = useMemo(() => new CommandInvoker(), []);
-  const clipboard = useMemo(() => Clipboard.getInstance(), []);
-  // canUndo / canRedo 以 treeVersion 為依賴，確保每次操作後重新計算
-  const canUndo = treeVersion >= 0 && invoker.canUndo;
-  const canRedo = treeVersion >= 0 && invoker.canRedo;
-  const canPaste =
-    (treeVersion >= 0) &&
-    clipboard.hasNode() &&
-    selectedNode !== null &&
-    selectedNode.isDirectory();
+  const facade = useMemo(() => new FileSystemFacade(), []);
+  // canUndo / canRedo / canPaste 以 treeVersion 為依賴，確保每次操作後重新計算
+  const canUndo = treeVersion >= 0 && facade.canUndo;
+  const canRedo = treeVersion >= 0 && facade.canRedo;
+  const canPaste = treeVersion >= 0 && facade.canPaste(selectedNode);
 
   // 進度面板 — 始終顯示，由 DashboardObserver 透過 callback 更新
   const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps>({
@@ -206,16 +194,15 @@ function App() {
   const totalNodes = useMemo(() => countNodes(root), [root]);
 
   // 所有標籤（labelVersion 變動時重算）
-  const allLabels = useMemo(() => labelFactory.getAll(), [labelVersion]);
+  const allLabels = useMemo(() => facade.getAllLabels(), [labelVersion]);
   // 已選節點的標籤（node 或 labelVersion 變動時重算）
   const nodeLabels = useMemo(
-    () => (selectedNode ? tagMediator.getLabelsOf(selectedNode) : []),
+    () => (selectedNode ? facade.getNodeLabels(selectedNode) : []),
     [selectedNode, labelVersion],
   );
   // getNodeLabels fn — labelVersion 變動時建立新參考以驅動 FileTreeView 重算
   const getNodeLabels = useCallback(
-    (node: import("./domain/FileSystemNode").FileSystemNode) =>
-      tagMediator.getLabelsOf(node),
+    (node: FileSystemNode) => facade.getNodeLabels(node),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [labelVersion],
   );
@@ -223,10 +210,10 @@ function App() {
   const effectiveMatchedPaths = useMemo(() => {
     if (labelFilter) {
       const paths = new Set<string>();
-      const rootHasLabel = tagMediator
-        .getLabelsOf(root)
+      const rootHasLabel = facade
+        .getNodeLabels(root)
         .some((l) => l.id === labelFilter.id);
-      const hasDesc = buildLabelMatchedPaths(root, labelFilter, root.name, paths);
+      const hasDesc = buildLabelMatchedPaths(root, labelFilter, root.name, paths, (n) => facade.getNodeLabels(n));
       if (hasDesc || rootHasLabel) paths.add(root.name);
       return paths;
     }
@@ -414,72 +401,67 @@ function App() {
 
   const handleCopy = useCallback(() => {
     if (!selectedNode) return;
-    invoker.execute(new CopyCommand(selectedNode, clipboard), false);
+    facade.copy(selectedNode);
     appendLog({ level: "INFO", message: `📋 複製：${selectedNode.name}`, timestamp: new Date() });
     bumpTree();
-  }, [selectedNode, invoker, clipboard, appendLog]);
+  }, [selectedNode, facade, appendLog]);
 
   const handlePaste = useCallback(() => {
     if (!selectedNode?.isDirectory()) return;
-    const sourceName = clipboard.getNode()?.name ?? "";
-    const cmd = new PasteCommand(clipboard, selectedNode as Directory);
-    invoker.execute(cmd);
-    const pastedName = cmd.pastedNodeName ?? sourceName;
-    const renamed = pastedName !== sourceName;
+    const result = facade.paste(selectedNode as Directory);
     appendLog({
       level: "SUCCESS",
-      message: renamed
-        ? `📌 貼上：${pastedName}（"${sourceName}" 重新命名）→ ${selectedNode.name}`
-        : `📌 貼上：${pastedName} → ${selectedNode.name}`,
+      message: result.renamed
+        ? `📌 貼上：${result.pastedName}（重新命名）→ ${selectedNode.name}`
+        : `📌 貼上：${result.pastedName} → ${selectedNode.name}`,
       timestamp: new Date(),
     });
     bumpTree();
-  }, [selectedNode, invoker, clipboard, appendLog]);
+  }, [selectedNode, facade, appendLog]);
 
   const handleDelete = useCallback(() => {
     if (!selectedNode || !selectedParent) return;
     const deletedName = selectedNode.name;
-    invoker.execute(new DeleteCommand(selectedNode, selectedParent));
+    facade.delete(selectedNode, selectedParent);
     setSelectedNode(null);
     setSelectedParent(null);
     appendLog({ level: "WARNING", message: `🗑 刪除：${deletedName}`, timestamp: new Date() });
     bumpTree();
-  }, [selectedNode, selectedParent, invoker, appendLog]);
+  }, [selectedNode, selectedParent, facade, appendLog]);
 
   const handleSort = useCallback(
     (strategy: ISortStrategy) => {
       if (!selectedNode?.isDirectory()) return;
       const dir = selectedNode as Directory;
-      const snapshot = [...dir.getChildren()];
-      invoker.execute(new SortCommand(dir, strategy, snapshot));
+      facade.sort(dir, strategy);
       appendLog({ level: "INFO", message: `🔀 排序：${dir.name} 依 ${strategy.label}`, timestamp: new Date() });
       bumpTree();
     },
-    [selectedNode, invoker, appendLog],
+    [selectedNode, facade, appendLog],
   );
 
   const handleUndo = useCallback(() => {
-    const desc = invoker.undoDescription;
-    invoker.undo();
+    const desc = facade.undoDescription;
+    facade.undo();
     if (desc) appendLog({ level: "INFO", message: `↩ 復原：${desc}`, timestamp: new Date() });
     bumpTree();
     bumpLabel();
-  }, [invoker, appendLog]);
+  }, [facade, appendLog]);
 
   const handleRedo = useCallback(() => {
-    const desc = invoker.redoDescription;
-    invoker.redo();
+    const desc = facade.redoDescription;
+    facade.redo();
     if (desc) appendLog({ level: "INFO", message: `↪ 重做：${desc}`, timestamp: new Date() });
     bumpTree();
     bumpLabel();
-  }, [invoker, appendLog]);
+  }, [facade, appendLog]);
 
   // ── Label / Tag handlers ──────────────────────────────────────────────────
 
   const handleTagLabel = useCallback(
     (label: Label) => {
       if (!selectedNode) return;
-      invoker.execute(new LabelTagCommand(selectedNode, label, tagMediator));
+      facade.tagLabel(selectedNode, label);
       appendLog({
         level: "INFO",
         message: `🏷️ 貼標籤：${label.name} → ${selectedNode.name}`,
@@ -487,13 +469,13 @@ function App() {
       });
       bumpLabel();
     },
-    [selectedNode, invoker, appendLog],
+    [selectedNode, facade, appendLog],
   );
 
   const handleRemoveLabel = useCallback(
     (label: Label) => {
       if (!selectedNode) return;
-      invoker.execute(new RemoveLabelCommand(selectedNode, label, tagMediator));
+      facade.removeLabel(selectedNode, label);
       appendLog({
         level: "WARNING",
         message: `🏷️ 移除標籤：${label.name} ← ${selectedNode.name}`,
@@ -501,14 +483,13 @@ function App() {
       });
       bumpLabel();
     },
-    [selectedNode, invoker, appendLog],
+    [selectedNode, facade, appendLog],
   );
 
   const handleCreateLabel = useCallback(
     (name: string) => {
-      const label = labelFactory.getOrCreate(name);
+      const label = facade.createLabel(name, selectedNode ?? undefined);
       if (selectedNode) {
-        invoker.execute(new LabelTagCommand(selectedNode, label, tagMediator));
         appendLog({
           level: "INFO",
           message: `🏷️ 建立並貼標籤：${label.name} → ${selectedNode.name}`,
@@ -523,7 +504,7 @@ function App() {
       }
       bumpLabel();
     },
-    [selectedNode, invoker, appendLog],
+    [selectedNode, facade, appendLog],
   );
 
   const handleFilterByLabel = useCallback((label: Label | null) => {
