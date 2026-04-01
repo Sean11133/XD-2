@@ -32,6 +32,12 @@ import { CopyCommand } from "./services/commands/CopyCommand";
 import { PasteCommand } from "./services/commands/PasteCommand";
 import { DeleteCommand } from "./services/commands/DeleteCommand";
 import { SortCommand } from "./services/commands/SortCommand";
+import { LabelTagCommand } from "./services/commands/LabelTagCommand";
+import { RemoveLabelCommand } from "./services/commands/RemoveLabelCommand";
+import { tagMediator } from "./services/TagMediator";
+import { labelFactory } from "./domain/labels/LabelFactory";
+import type { Label } from "./domain/labels/Label";
+import { LabelPanel } from "./components/LabelPanel";
 
 // Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
 const DEFAULT_CHAIN = new LogEntryDecoratorChain([
@@ -47,6 +53,43 @@ function formatSize(sizeKB: number): string {
     return `${(sizeKB / 1024).toFixed(2)} MB`;
   }
   return `${sizeKB} KB`;
+}
+
+/**
+ * 遞迴建立標籤篩選路徑集合。
+ * 走訪每個子節點，判斷是否掛有指定 Label；
+ * 若有，則將該路徑與所有祖先路徑加入 result（保持節點可見）。
+ */
+function buildLabelMatchedPaths(
+  dir: Directory,
+  label: Label,
+  dirPath: string,
+  result: Set<string>,
+): boolean {
+  let hasMatch = false;
+  for (const child of dir.getChildren()) {
+    const childPath = `${dirPath}/${child.name}`;
+    const childLabels = tagMediator.getLabelsOf(child);
+    const childHasLabel = childLabels.some((l) => l.id === label.id);
+    if (child.isDirectory()) {
+      const descMatch = buildLabelMatchedPaths(
+        child as Directory,
+        label,
+        childPath,
+        result,
+      );
+      if (descMatch || childHasLabel) {
+        result.add(childPath);
+        hasMatch = true;
+      }
+    } else {
+      if (childHasLabel) {
+        result.add(childPath);
+        hasMatch = true;
+      }
+    }
+  }
+  return hasMatch;
 }
 
 /**
@@ -154,9 +197,41 @@ function App() {
     undefined,
   );
 
+  // ── Label / Tag 狀態 ──
+  const [labelVersion, setLabelVersion] = useState(0);
+  const [labelFilter, setLabelFilter] = useState<Label | null>(null);
+
   // 計算總大小與節點數（root 穩定，不重新建立）
   const totalSize = useMemo(() => root.getSizeKB(), [root]);
   const totalNodes = useMemo(() => countNodes(root), [root]);
+
+  // 所有標籤（labelVersion 變動時重算）
+  const allLabels = useMemo(() => labelFactory.getAll(), [labelVersion]);
+  // 已選節點的標籤（node 或 labelVersion 變動時重算）
+  const nodeLabels = useMemo(
+    () => (selectedNode ? tagMediator.getLabelsOf(selectedNode) : []),
+    [selectedNode, labelVersion],
+  );
+  // getNodeLabels fn — labelVersion 變動時建立新參考以驅動 FileTreeView 重算
+  const getNodeLabels = useCallback(
+    (node: import("./domain/FileSystemNode").FileSystemNode) =>
+      tagMediator.getLabelsOf(node),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [labelVersion],
+  );
+  // 有效路徑：labelFilter 優先，否則使用關鍵字搜尋結果
+  const effectiveMatchedPaths = useMemo(() => {
+    if (labelFilter) {
+      const paths = new Set<string>();
+      const rootHasLabel = tagMediator
+        .getLabelsOf(root)
+        .some((l) => l.id === labelFilter.id);
+      const hasDesc = buildLabelMatchedPaths(root, labelFilter, root.name, paths);
+      if (hasDesc || rootHasLabel) paths.add(root.name);
+      return paths;
+    }
+    return matchedPaths;
+  }, [root, labelFilter, matchedPaths, labelVersion]);
 
   /** 安全追加 log（上限 500 筆） */
   const appendLog = useCallback(
@@ -327,6 +402,7 @@ function App() {
   // ── Command handlers ──────────────────────────────────────────────────────
 
   const bumpTree = () => setTreeVersion((v) => v + 1);
+  const bumpLabel = () => setLabelVersion((v) => v + 1);
 
   const handleSelect = useCallback(
     (node: FileSystemNode, parent: Directory | null) => {
@@ -387,6 +463,7 @@ function App() {
     invoker.undo();
     if (desc) appendLog({ level: "INFO", message: `↩ 復原：${desc}`, timestamp: new Date() });
     bumpTree();
+    bumpLabel();
   }, [invoker, appendLog]);
 
   const handleRedo = useCallback(() => {
@@ -394,7 +471,64 @@ function App() {
     invoker.redo();
     if (desc) appendLog({ level: "INFO", message: `↪ 重做：${desc}`, timestamp: new Date() });
     bumpTree();
+    bumpLabel();
   }, [invoker, appendLog]);
+
+  // ── Label / Tag handlers ──────────────────────────────────────────────────
+
+  const handleTagLabel = useCallback(
+    (label: Label) => {
+      if (!selectedNode) return;
+      invoker.execute(new LabelTagCommand(selectedNode, label, tagMediator));
+      appendLog({
+        level: "INFO",
+        message: `🏷️ 貼標籤：${label.name} → ${selectedNode.name}`,
+        timestamp: new Date(),
+      });
+      bumpLabel();
+    },
+    [selectedNode, invoker, appendLog],
+  );
+
+  const handleRemoveLabel = useCallback(
+    (label: Label) => {
+      if (!selectedNode) return;
+      invoker.execute(new RemoveLabelCommand(selectedNode, label, tagMediator));
+      appendLog({
+        level: "WARNING",
+        message: `🏷️ 移除標籤：${label.name} ← ${selectedNode.name}`,
+        timestamp: new Date(),
+      });
+      bumpLabel();
+    },
+    [selectedNode, invoker, appendLog],
+  );
+
+  const handleCreateLabel = useCallback(
+    (name: string) => {
+      const label = labelFactory.getOrCreate(name);
+      if (selectedNode) {
+        invoker.execute(new LabelTagCommand(selectedNode, label, tagMediator));
+        appendLog({
+          level: "INFO",
+          message: `🏷️ 建立並貼標籤：${label.name} → ${selectedNode.name}`,
+          timestamp: new Date(),
+        });
+      } else {
+        appendLog({
+          level: "INFO",
+          message: `🏷️ 建立標籤：${label.name}`,
+          timestamp: new Date(),
+        });
+      }
+      bumpLabel();
+    },
+    [selectedNode, invoker, appendLog],
+  );
+
+  const handleFilterByLabel = useCallback((label: Label | null) => {
+    setLabelFilter(label);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -441,6 +575,9 @@ function App() {
   const isSearchActive = keyword.trim().length > 0;
   const resultCount = matchedPaths
     ? [...matchedPaths].filter((p) => p !== root.name).length
+    : 0;
+  const labelFilterCount = effectiveMatchedPaths
+    ? [...effectiveMatchedPaths].filter((p) => p !== root.name).length
     : 0;
 
   return (
@@ -540,6 +677,18 @@ function App() {
           onRedo={handleRedo}
         />
 
+        {/* ── Label Panel ── */}
+        <LabelPanel
+          allLabels={allLabels}
+          activeFilter={labelFilter}
+          selectedNode={selectedNode}
+          nodeLabels={nodeLabels}
+          onTagLabel={handleTagLabel}
+          onRemoveLabel={handleRemoveLabel}
+          onFilterByLabel={handleFilterByLabel}
+          onCreateLabel={handleCreateLabel}
+        />
+
         {/* ── File Tree Card ── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
@@ -549,7 +698,15 @@ function App() {
                 檔案樹
               </span>
             </div>
-            {isSearchActive ? (
+            {labelFilter ? (
+              <span className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-full border border-violet-200 font-medium flex items-center gap-1.5">
+                <span
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: labelFilter.color }}
+                />
+                標籤篩選「{labelFilter.name}」· 找到 {labelFilterCount} 個節點
+              </span>
+            ) : isSearchActive ? (
               <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-200 font-medium">
                 搜尋「{keyword}」· 找到 {resultCount} 個節點
               </span>
@@ -563,9 +720,10 @@ function App() {
             <FileTreeView
               key={treeVersion}
               root={root}
-              matchedPaths={matchedPaths}
+              matchedPaths={effectiveMatchedPaths}
               onSelect={handleSelect}
               selectedNode={selectedNode}
+              getNodeLabels={getNodeLabels}
             />
           </div>
         </div>
