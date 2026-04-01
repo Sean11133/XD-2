@@ -29,6 +29,7 @@ import { countNodes } from "./services/exporters/countNodes";
 import { FileSystemFacade } from "./services/FileSystemFacade";
 import type { Label } from "./domain/labels/Label";
 import { LabelPanel } from "./components/LabelPanel";
+import { LabelFilterBar } from "./components/LabelFilterBar";
 
 // Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
 const DEFAULT_CHAIN = new LogEntryDecoratorChain([
@@ -143,6 +144,20 @@ function buildMatchedPathsWithProgress(
     });
   }
   return hasMatch;
+}
+
+function getNodeTypeInfo(node: FileSystemNode): { icon: string; type: string; color: string } {
+  if (node.isDirectory()) return { icon: "📁", type: "資料夾", color: "text-blue-600 bg-blue-50 border-blue-200" };
+  const name = node.name.toLowerCase();
+  if (name.endsWith(".txt")) return { icon: "📄", type: "文字檔", color: "text-slate-600 bg-slate-50 border-slate-200" };
+  if (name.endsWith(".xml")) return { icon: "🗂", type: "XML", color: "text-orange-600 bg-orange-50 border-orange-200" };
+  if (name.endsWith(".json")) return { icon: "📊", type: "JSON", color: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+  if (name.endsWith(".md")) return { icon: "📝", type: "Markdown", color: "text-violet-600 bg-violet-50 border-violet-200" };
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp"))
+    return { icon: "🖼", type: "圖片", color: "text-pink-600 bg-pink-50 border-pink-200" };
+  if (name.endsWith(".pdf")) return { icon: "📕", type: "PDF", color: "text-red-600 bg-red-50 border-red-200" };
+  if (name.endsWith(".docx") || name.endsWith(".doc")) return { icon: "📘", type: "Word", color: "text-blue-600 bg-blue-50 border-blue-200" };
+  return { icon: "📄", type: "檔案", color: "text-slate-600 bg-slate-50 border-slate-200" };
 }
 
 function App() {
@@ -582,6 +597,15 @@ function App() {
     }
   };
 
+  // 即時搜尋 debounce — inputValue 變動 350ms 後自動執行（Enter 鍵仍可立即觸發）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch(inputValue);
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputValue]);
+
   const handleClear = () => {
     setInputValue("");
     setKeyword("");
@@ -625,177 +649,229 @@ function App() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* ── Navbar ── */}
-      <header className="bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
+      {/* ── Header ── */}
+      <header className="bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg flex-shrink-0">
+        <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">📂</span>
+            <span className="text-2xl">📂</span>
             <div>
-              <h1 className="text-lg font-bold text-white leading-tight tracking-tight">
-                雲端檔案管理系統
-              </h1>
-              <p className="text-blue-200 text-xs">
-                Cloud File Management System
-              </p>
+              <h1 className="text-base font-bold text-white leading-tight">雲端檔案管理系統</h1>
+              <p className="text-blue-200 text-xs">Cloud File Management System</p>
             </div>
           </div>
-          <div className="rounded-lg bg-white/10 px-4 py-2 text-center backdrop-blur-sm">
-            <p className="text-blue-200 text-xs font-medium">總容量</p>
-            <p className="text-white font-bold text-base">
-              {formatSize(totalSize)}
-            </p>
+          <div className="hidden sm:flex items-center gap-4 text-xs text-blue-200 ml-auto">
+            <span><span className="font-bold text-white">{totalNodes}</span> 個節點</span>
+            <span><span className="font-bold text-white">{formatSize(totalSize)}</span></span>
+          </div>
+          <div className="flex gap-2 ml-auto sm:ml-0">
+            <button
+              onClick={handleExportXml}
+              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+            >
+              🗂 XML
+            </button>
+            <button
+              onClick={handleExportJson}
+              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+            >
+              📊 JSON
+            </button>
+            <button
+              onClick={handleExportMarkdown}
+              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+            >
+              📝 MD
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
-        {/* ── Server Error Banner ── */}
-        {serverError && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-amber-800 text-sm">
-            <span className="text-lg">⚠️</span>
-            <span className="flex-1">{serverError}</span>
-            <button
-              onClick={() => setServerError(null)}
-              className="text-amber-500 hover:text-amber-700 font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
+      {/* ── Banners ── */}
+      {(serverError || isLoading) && (
+        <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pt-3 space-y-2">
+          {serverError && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-amber-800 text-sm">
+              <span className="text-lg">⚠️</span>
+              <span className="flex-1">{serverError}</span>
+              <button
+                onClick={() => setServerError(null)}
+                className="text-amber-500 hover:text-amber-700 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {isLoading && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm">
+              <span className="animate-spin text-lg">⏳</span>
+              <span>正在從後端載入資料...</span>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* ── Loading Banner ── */}
-        {isLoading && (
-          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm">
-            <span className="animate-spin text-lg">⏳</span>
-            <span>正在從後端載入資料...</span>
-          </div>
-        )}
-        {/* ── Action Bar ── */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
-            <div className="relative flex-1 min-w-52">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
-                🔍
-              </span>
+      {/* ── Main two-column ── */}
+      <div className="flex-1 min-h-0 max-w-screen-xl mx-auto w-full px-6 py-4 flex gap-4 overflow-hidden">
+        {/* Left: Search + File Tree */}
+        <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+          {/* Search */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-3 py-2.5 flex-shrink-0">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔍</span>
               <input
                 ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="輸入關鍵字後按 Enter 搜尋..."
-                className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                placeholder="即時搜尋節點..."
+                className="w-full border border-slate-200 rounded-lg pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all bg-slate-50"
+              />
+              {isSearchActive && (
+                <button
+                  onClick={handleClear}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Label Filter Bar */}
+          <LabelFilterBar
+            allLabels={allLabels}
+            activeFilter={labelFilter}
+            onFilterByLabel={handleFilterByLabel}
+            onCreateLabel={handleCreateLabel}
+          />
+
+          {/* File Tree */}
+          <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span>🌲</span>
+                <span className="text-sm font-semibold text-slate-700">檔案樹</span>
+              </div>
+              {labelFilter ? (
+                <span className="text-xs px-2 py-0.5 bg-violet-50 text-violet-700 rounded-full border border-violet-200 font-medium flex items-center gap-1">
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: labelFilter.color }}
+                  />
+                  {labelFilter.name} · {labelFilterCount}
+                </span>
+              ) : isSearchActive ? (
+                <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-200 font-medium">
+                  {resultCount} 個結果
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">{totalNodes} 個</span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-3">
+              <FileTreeView
+                key={treeVersion}
+                root={root}
+                matchedPaths={effectiveMatchedPaths}
+                onSelect={handleSelect}
+                selectedNode={selectedNode}
+                getNodeLabels={getNodeLabels}
               />
             </div>
-
-            {isSearchActive && (
-              <button
-                onClick={handleClear}
-                className="text-sm px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 transition-colors whitespace-nowrap"
-              >
-                ✕ 清除
-              </button>
-            )}
-
-            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
-
-            {/* Export buttons */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={handleExportXml}
-                className="text-sm px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
-              >
-                🗂 XML
-              </button>
-              <button
-                onClick={handleExportJson}
-                className="text-sm px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
-              >
-                📊 JSON
-              </button>
-              <button
-                onClick={handleExportMarkdown}
-                className="text-sm px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 active:bg-violet-800 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
-              >
-                📝 Markdown
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* ── Dashboard Panel ── */}
-        {dashboardProps && <DashboardPanel {...dashboardProps} />}
-
-        {/* ── Toolbar Panel ── */}
-        <ToolbarPanel
-          selectedNode={selectedNode}
-          canPaste={canPaste}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-          onDelete={handleDelete}
-          onSort={handleSort}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-        />
-
-        {/* ── Label Panel ── */}
-        <LabelPanel
-          allLabels={allLabels}
-          activeFilter={labelFilter}
-          selectedNode={selectedNode}
-          nodeLabels={nodeLabels}
-          onTagLabel={handleTagLabel}
-          onRemoveLabel={handleRemoveLabel}
-          onFilterByLabel={handleFilterByLabel}
-          onCreateLabel={handleCreateLabel}
-        />
-
-        {/* ── File Tree Card ── */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <span>🌲</span>
-              <span className="text-sm font-semibold text-slate-700">
-                檔案樹
-              </span>
+        {/* Right: Detail + Actions */}
+        <div className="flex-1 min-w-0 overflow-y-auto flex flex-col gap-3 pr-1">
+          {/* Node Detail / Empty State */}
+          {selectedNode ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex-shrink-0">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl leading-none mt-0.5">
+                  {getNodeTypeInfo(selectedNode).icon}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <h2 className="text-base font-bold text-slate-800 break-all">
+                      {selectedNode.name}
+                    </h2>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium border ${getNodeTypeInfo(selectedNode).color}`}
+                    >
+                      {getNodeTypeInfo(selectedNode).type}
+                    </span>
+                  </div>
+                  <div className="flex items-center flex-wrap gap-3 text-xs text-slate-500">
+                    <span>📦 {formatSize(selectedNode.getSizeKB())}</span>
+                    {selectedNode.isDirectory() && (
+                      <span>
+                        📄 {(selectedNode as Directory).getChildren().length} 個子項目
+                      </span>
+                    )}
+                    {nodeLabels.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {nodeLabels.map((l) => (
+                          <span
+                            key={l.id}
+                            className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium leading-none"
+                            style={{
+                              backgroundColor: l.color + "22",
+                              color: l.color,
+                              border: `1px solid ${l.color}44`,
+                            }}
+                          >
+                            {l.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            {labelFilter ? (
-              <span className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-full border border-violet-200 font-medium flex items-center gap-1.5">
-                <span
-                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: labelFilter.color }}
-                />
-                標籤篩選「{labelFilter.name}」· 找到 {labelFilterCount} 個節點
-              </span>
-            ) : isSearchActive ? (
-              <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-200 font-medium">
-                搜尋「{keyword}」· 找到 {resultCount} 個節點
-              </span>
-            ) : (
-              <span className="text-xs text-slate-400">
-                共 {totalNodes} 個節點
-              </span>
-            )}
-          </div>
-          <div className="p-4">
-            <FileTreeView
-              key={treeVersion}
-              root={root}
-              matchedPaths={effectiveMatchedPaths}
-              onSelect={handleSelect}
-              selectedNode={selectedNode}
-              getNodeLabels={getNodeLabels}
-            />
-          </div>
-        </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center flex-shrink-0">
+              <div className="text-4xl mb-2">👆</div>
+              <p className="text-slate-600 text-sm font-medium">點選左側節點</p>
+              <p className="text-slate-400 text-xs mt-1">選取檔案或資料夾以查看詳情與進行操作</p>
+            </div>
+          )}
 
-        {/* ── Log Panel ── */}
+          {/* ── Toolbar Panel ── */}
+          <ToolbarPanel
+            selectedNode={selectedNode}
+            canPaste={canPaste}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onCopy={handleCopy}
+            onPaste={handlePaste}
+            onDelete={handleDelete}
+            onSort={handleSort}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+          />
+
+          {/* ── Label Panel ── */}
+          <LabelPanel
+            allLabels={allLabels}
+            selectedNode={selectedNode}
+            nodeLabels={nodeLabels}
+            onTagLabel={handleTagLabel}
+            onRemoveLabel={handleRemoveLabel}
+            onCreateLabel={handleCreateLabel}
+          />
+
+          {/* ── Progress Panel ── */}
+          {dashboardProps && <DashboardPanel {...dashboardProps} />}
+        </div>
+      </div>
+
+      {/* ── Log Panel (bottom strip) ── */}
+      <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pb-4">
         <LogPanel logs={logs} onClear={() => setLogs([])} />
-      </main>
+      </div>
     </div>
   );
 }

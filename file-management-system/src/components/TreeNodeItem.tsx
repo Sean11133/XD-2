@@ -85,15 +85,26 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             {node.getDisplayInfo()}
           </span>
           {labels.length > 0 && (
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              {labels.map((label) => (
+            <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
+              {labels.slice(0, 2).map((label) => (
                 <span
                   key={label.id}
-                  className="inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm flex-shrink-0"
-                  style={{ backgroundColor: label.color }}
+                  className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium leading-none"
+                  style={{
+                    backgroundColor: label.color + "22",
+                    color: label.color,
+                    border: `1px solid ${label.color}44`,
+                  }}
                   title={label.name}
-                />
+                >
+                  {label.name.length > 6 ? label.name.slice(0, 5) + "…" : label.name}
+                </span>
               ))}
+              {labels.length > 2 && (
+                <span className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-slate-100 text-slate-500">
+                  +{labels.length - 2}
+                </span>
+              )}
             </div>
           )}
           <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400 select-none opacity-0 transition-opacity group-hover:opacity-100">
@@ -131,14 +142,25 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
       <span className="text-sm text-slate-600">{node.getDisplayInfo()}</span>
       {labels.length > 0 && (
         <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
-          {labels.map((label) => (
+          {labels.slice(0, 2).map((label) => (
             <span
               key={label.id}
-              className="inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm flex-shrink-0"
-              style={{ backgroundColor: label.color }}
+              className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium leading-none"
+              style={{
+                backgroundColor: label.color + "22",
+                color: label.color,
+                border: `1px solid ${label.color}44`,
+              }}
               title={label.name}
-            />
+            >
+              {label.name.length > 6 ? label.name.slice(0, 5) + "…" : label.name}
+            </span>
           ))}
+          {labels.length > 2 && (
+            <span className="inline-block text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-slate-100 text-slate-500">
+              +{labels.length - 2}
+            </span>
+          )}
         </div>
       )}
     </div>
