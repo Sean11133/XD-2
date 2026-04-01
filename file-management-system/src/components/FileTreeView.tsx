@@ -1,6 +1,7 @@
 import { Directory } from "../domain/Directory";
 import { FileSystemNode } from "../domain/FileSystemNode";
 import { TreeNodeItem } from "./TreeNodeItem";
+import type { Label } from "../domain/labels/Label";
 
 interface FileTreeViewProps {
   root: Directory;
@@ -9,6 +10,8 @@ interface FileTreeViewProps {
   onSelect?: (node: FileSystemNode, parent: Directory | null) => void;
   /** 目前被選取的節點（用於高亮）*/
   selectedNode?: FileSystemNode | null;
+  /** 取得節點身上的標籤列表（由 App 透過 tagMediator 提供）*/
+  getNodeLabels?: (node: FileSystemNode) => Label[];
 }
 
 export const FileTreeView: React.FC<FileTreeViewProps> = ({
@@ -16,6 +19,7 @@ export const FileTreeView: React.FC<FileTreeViewProps> = ({
   matchedPaths,
   onSelect,
   selectedNode,
+  getNodeLabels,
 }) => {
   return (
     <div className="font-mono">
@@ -27,6 +31,7 @@ export const FileTreeView: React.FC<FileTreeViewProps> = ({
         onSelect={onSelect}
         selectedNode={selectedNode}
         parentDir={null}
+        getNodeLabels={getNodeLabels}
       />
     </div>
   );

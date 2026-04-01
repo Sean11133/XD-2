@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileSystemNode } from "../domain/FileSystemNode";
 import { Directory } from "../domain/Directory";
+import type { Label } from "../domain/labels/Label";
 
 /** 格式化大小：< 1024 KB 顯示 KB，否則顯示 MB（兩位小數） */
 function formatSize(sizeKB: number): string {
@@ -23,6 +24,8 @@ interface TreeNodeItemProps {
   selectedNode?: FileSystemNode | null;
   /** 此節點的父目錄（由 FileTreeView 向下傳遞） */
   parentDir?: Directory | null;
+  /** 取得節點身上的標籤列表（由 App 透過 tagMediator 提供）*/
+  getNodeLabels?: (node: FileSystemNode) => Label[];
 }
 
 export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
@@ -33,11 +36,13 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   onSelect,
   selectedNode,
   parentDir = null,
+  getNodeLabels,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const path = currentPath ?? node.name;
   const indent = { paddingLeft: `${level * 1.25}rem` };
+  const labels = getNodeLabels ? getNodeLabels(node) : [];
 
   // 搜尋篩選：matchedPaths 存在時，不在集合內的節點不顯示
   if (matchedPaths !== undefined && !matchedPaths.has(path)) {
@@ -79,6 +84,18 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           <span className="flex-1 text-sm text-slate-700">
             {node.getDisplayInfo()}
           </span>
+          {labels.length > 0 && (
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {labels.map((label) => (
+                <span
+                  key={label.id}
+                  className="inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm flex-shrink-0"
+                  style={{ backgroundColor: label.color }}
+                  title={label.name}
+                />
+              ))}
+            </div>
+          )}
           <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400 select-none opacity-0 transition-opacity group-hover:opacity-100">
             {sizeLabel}
           </span>
@@ -95,6 +112,7 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                 onSelect={onSelect}
                 selectedNode={selectedNode}
                 parentDir={dir}
+                getNodeLabels={getNodeLabels}
               />
             ))}
           </div>
@@ -111,6 +129,18 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     >
       <span className="w-3 flex-shrink-0" />
       <span className="text-sm text-slate-600">{node.getDisplayInfo()}</span>
+      {labels.length > 0 && (
+        <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
+          {labels.map((label) => (
+            <span
+              key={label.id}
+              className="inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm flex-shrink-0"
+              style={{ backgroundColor: label.color }}
+              title={label.name}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
