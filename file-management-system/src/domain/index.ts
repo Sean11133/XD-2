@@ -8,3 +8,5 @@ export type { IFileSystemVisitor } from "./IFileSystemVisitor";
 export { Clipboard } from "./Clipboard";
 export type { ICommand } from "./commands";
 export type { ISortStrategy } from "./strategies";
+export { Label, LabelFactory, labelFactory } from "./labels";
+export type { ITagRepository } from "./labels";
