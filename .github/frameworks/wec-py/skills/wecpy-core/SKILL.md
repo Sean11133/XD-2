@@ -1,207 +1,211 @@
 ---
 name: wecpy-core
-description: >-
-  This skill should be used when the user asks about "ConfigManager 初始化", "config.yaml 讀取",
-  "LogManager 日誌記錄 tid", "OracleManager TrinoManager SQLServerManager 資料庫查詢",
-  "WecEncryption 加解密", "JwtHelper JWT 解析", "IMXAppContext 取得使用者 get_current_user",
-  "GrpcAuthClientInterceptor gRPC 認證", "IMXUserContext SSL 憑證", "Converter protobuf 轉換",
-  "BaseModel WebApiInputTemplate WebApiOutputTemplate", "環境變數 IMX_ENV",
-  or needs wecpy core modules for configuration, logging, database access, encryption, or authentication.
-  (wecpy v1.11.1)
+description: >
+  Invoke for wecpy project initialization, ConfigManager, LogManager, or any foundational framework question.
+  Covers: ConfigManager (config.yaml loading, env auto-switch, General/Log/custom blocks),
+  LogManager (get_logger, set_tid, log_key), project structure, environment variables (IMX_ENV/IMX_SYSTEM/IMX_APP),
+  SecurityService (JWT/AES), DataCacheManager (gRPC cache with TTL), BaseETL, IMXAppContext, Converter utilities.
+  Keywords: wecpy、IMX 框架、ConfigManager、LogManager、config.yaml、專案初始化、環境變數、
+  PILOT/PROD、wecpy 入門、wecpy 教學、wecpy 怎麼用、logging、log 設定、SecurityService、DataCacheManager。
+  Excludes DB→wecpy-database, Kafka→wecpy-kafka, FTP/S3/API→wecpy-io, APM/COP/ES→wecpy-monitoring,
+  FDC→wecpy-fdc/wecpy-datafetcher.
 ---
 
-# wecpy-core
+# wecpy 核心技能
 
-## 首要原則 — 使用 wecpy，不要重造輪子
+wecpy 是 Winbond Electronics Corporation 內部專用的 Python 企業應用框架，提供統一的組態管理、日誌、資料庫、訊息佇列、監控等企業級功能。
 
-> **AI 在實作時，必須優先調用 wecpy 已提供的方法，嚴禁自行重新實作 wecpy 已涵蓋的功能。**
+## 環境需求
 
-- **禁止**自行實作 YAML/config 讀取邏輯 → 使用 `ConfigManager`
-- **禁止**自行設定 Python logging → 使用 `LogManager.get_logger()`
-- **禁止**自行建立 DB 連線（cx_Oracle / pyodbc / trino.dbapi）→ 使用 `OracleManager` / `SQLServerManager` / `TrinoManager`
-- **禁止**自行實作 AES 加解密 → 使用 `WecEncryption.get_instance()`
-- **禁止**自行解析 JWT token → 使用 `JwtHelper.parse_jwt_token()`
-- **禁止**自行用 `getpass.getuser()` 取得使用者 → 使用 `IMXAppContext.get_current_user()`
-- **禁止**自行用 `requests.get()` 抓 SSL 憑證 → 使用 `IMXUserContext.get_ssl_certificate()`
-- **禁止**自行寫 protobuf ↔ datetime 轉換 → 使用 `Converter`
+- **Python 版本**：3.10 ~ 3.14
+- **安裝來源**：內部 Nexus 私有倉庫
 
-如果需求可以被本 skill 列出的 API 滿足，就必須使用該 API。只有在 wecpy 確實不提供對應功能時，才能自行實作。
+```bash
+pip install --index-url=http://10.18.20.121:8081/repository/wec-pypi/simple \
+    --trusted-host=10.18.20.121 wecpy
+```
 
-## 適用情境
+## ⚠️ 強制初始化規範
 
-- 專案啟動與設定初始化（config.yaml）
-- 日誌管理與追蹤欄位（tid）
-- Oracle/Trino/SQL Server 資料庫存取
-- 加解密、JWT 解析、gRPC 驗證
-- 取得目前執行使用者
-- SSL 憑證與 gRPC 連線憑據
-- protobuf ↔ datetime/DataFrame 轉換
-- 共用模型（BaseModel、WebApiInputTemplate、WebApiOutputTemplate）
-
-## 設計模式
-
-| 模組            | 模式                    | 註記                                        |
-| --------------- | ----------------------- | ------------------------------------------- |
-| ConfigManager   | Singleton               | 初始化後全局可用                            |
-| LogManager      | Singleton + contextvars | tid 隔離輯輯不影響主程式                    |
-| DatabaseManager | Abstract Factory        | OracleManager/TrinoManager/SQLServerManager |
-| Security        | Utility (Singleton)     | WecEncryption 經由 get_instance() 取得      |
-| IMXAppContext   | Static Utility          | 快取 / 目前使用者                           |
-| IMXUserContext  | Static Utility          | SSL 憑證 / gRPC credentials                 |
-| Converter       | Static Utility          | protobuf ↔ Python 型別轉換                  |
-
-## 強制初始化順序
+這是 wecpy 框架最重要的規則，**必須嚴格遵守**：
 
 ```python
+# ✅ 正確：ConfigManager 的 import 和初始化必須連續兩行
 from wecpy.config_manager import ConfigManager
 ConfigManager('config.yaml')
 
+# 之後才能匯入其他 wecpy 元件
 from wecpy.log_manager import LogManager
 log = LogManager.get_logger()
 ```
 
-## API Surface (Anti-Hallucination)
-
-### ConfigManager
-
-- `ConfigManager(config_path: str)`
-- `ConfigManager.get_config_dict() -> dict`
-- `ConfigManager.root_path() -> str`
-- `ConfigManager.get_exe_env() -> str`
-- `ConfigManager.get_path(key: str) -> str`
-- `ConfigManager.get_config_file_path() -> str`
-- `ConfigManager.general` → `GeneralConfig` (system, app, app_type, section)
-- `ConfigManager.ENV` → `ENV` 物件，包含所有 IMX*\* / APP*\* 環境變數屬性
-
-### LogManager
-
-- `LogManager.get_logger() -> CustomLogger`
-- `LogManager.set_tid(tid: str)`
-- `LogManager.log_config`
-- Logger methods: `.debug()`, `.info()`, `.warning()`, `.error()`, `.critical()`, `.exception()`
-
-### DatabaseManager
-
-- `OracleManager(name: str)`
-- `TrinoManager(name: str)`
-- `SQLServerManager(name: str)`
-- Shared methods: `query_data(sql, params=None)`, `query_dataframe(sql, params=None)`, `execute_sql(sql, params=None)`, `insert()`, `truncate()`, `delete_all()`
-- 注意: 1.7.0+ 支援 prepare statement，使用 `:param` 樣式传入 `params` dict
-
-### Security
-
-- `WecEncryption.get_instance() -> WecEncryption`
-- `WecEncryption.encrypt(plain_text: str) -> str`
-- `WecEncryption.decrypt(cipher_text: str) -> str`
-- `WecEncryption.encrypt_to_byte_array(plain_text: str) -> bytes`
-- `WecEncryption.decrypt_byte_array(cipher_bytes: bytes) -> str`
-- `JwtHelper.parse_jwt_token(token: str) -> dict`
-- `GrpcAuthClientInterceptor`
-
-### IMXAppContext
-
 ```python
-from wecpy.imx_app_context import IMXAppContext
+# ❌ 錯誤：中間插入其他程式碼
+from wecpy.config_manager import ConfigManager
+import os  # 禁止！
+ConfigManager('config.yaml')
 ```
 
-- `IMXAppContext.get_current_user() -> str` — 取得目前執行使用者（優先 ENV → fallback OS user）
-- `IMXAppContext.set_cache(key, value, ttl)` — 寫入 Redis 快取（透過 gRPC）
-- `IMXAppContext.get_cache(key, cls) -> T` — 讀取 Redis 快取
-- `IMXAppContext.remove_cache(key)` — 移除快取
-
-### IMXUserContext
-
 ```python
-from wecpy.imx_user_context import IMXUserContext
+# ❌ 錯誤：先匯入其他 wecpy 模組
+from wecpy.log_manager import LogManager  # 禁止！
+from wecpy.config_manager import ConfigManager
+ConfigManager('config.yaml')
 ```
 
-- `IMXUserContext.get_ssl_certificate(cert_url=None) -> bytes` — 取得 SSL 憑證（每日快取）
-- `IMXUserContext.get_ssl_channel_credentials(file=None) -> grpc.ChannelCredentials` — 取得 gRPC SSL 憑據
+## 專案標準結構
 
-### Converter
-
-```python
-from wecpy.utility.converter import Converter
+```
+<workspace>/
+├── PROD/
+│   └── config.yaml         # 正式環境設定
+├── PILOT/
+│   └── config.yaml         # 測試環境設定
+├── .env                    # 環境變數（勿納入版控）
+├── .gitignore              # Git 排除設定
+├── requirements.txt        # 相依套件清單
+├── main.py                 # 主程式進入點
+├── log/                    # 日誌輸出目錄
+└── src/                    # 程式碼目錄
+    ├── __init__.py
+    ├── models/             # SQLAlchemy 資料模型
+    │   └── __init__.py
+    ├── daos/               # 資料存取物件
+    │   └── __init__.py
+    ├── services/           # 業務邏輯層
+    │   └── __init__.py
+    └── tests/              # 測試檔案（*_test.py）
+        └── __init__.py
 ```
 
-- `Converter.to_utc_timestamp_from_datetime(dt) -> Timestamp` — datetime → gRPC Timestamp
-- `Converter.to_utc_timestamp(year, month, day, hour=0, minute=0, second=0) -> Timestamp`
-- `Converter.to_utc_datetime_from_datetime(dt) -> datetime` — 轉為 UTC datetime
-- `Converter.to_utc_datetime(year, month, day, hour=0, minute=0, second=0) -> datetime`
-- `Converter.utc_timestamp_to_datetime(pb2_timestamp) -> datetime` — gRPC Timestamp → datetime
-- `Converter.protobuf_to_dataframe(protobuf_obj) -> pd.DataFrame` — protobuf → Pandas DataFrame
+## config.yaml 基礎格式
 
-### 共用模型 (wecpy.shared)
-
-- `BaseModel` — `to_dict()`, `debug_log()`, `debug_print()`
-- `WebApiInputTemplate` — Web API 輸入範本
-- `WebApiOutputTemplate` — Web API 輸出範本
-- `User` — `from_dict()`, `to_dict()`
-- `TemplateBase` — 範本基底類別
-
-## 環境變數
-
-| 變數                | 用途                                  | 新增版本 |
-| ------------------- | ------------------------------------- | -------- |
-| `IMX_ENV`           | `PILOT` / `PROD` 切換                 | -        |
-| `IMX_SYSTEM`        | 系統名稱                              | -        |
-| `IMX_APP`           | 應用名稱                              | -        |
-| `IMX_UDB_ID`        | 資料庫帳號                            | -        |
-| `IMX_UDB_PWD`       | 資料庫密碼                            | -        |
-| `IMX_DAG_ID`        | Airflow DAG ID                        | -        |
-| `IMX_APP_OWNER`     | 應用擁有者                            | -        |
-| `IMX_APP_ID`        | 應用 ID                               | -        |
-| `APP_RECORDER_URL`  | 指定 ELK Recorder 端點                | v1.11.1  |
-| `APP_STORER_URL`    | 指定 S3 Storer 端點                   | v1.11.1  |
-| `APP_CACHER_URL`    | 指定 Redis Cacher 端點                | v1.11.1  |
-| `APP_FETCHER_URL`   | 指定 SAP/EDWM/iMX Portal Fetcher 端點 | v1.11.1  |
-| `APP_{Service}_URL` | 指定任意 iMX Service 端點             | v1.11.1  |
-
-**URL 解析層級**: 明確傳入 URL > ENV var > IMX_ENV 預設（PILOT → `pilot-imx:443`, PROD → `imx-infra:443`）
-
-## config.yaml 範例
+每個 wecpy 專案**必須**包含 `General` 和 `Log` 區塊：
 
 ```yaml
 General:
-  system: "{IMX_SYSTEM}"
-  app: "{IMX_APP}"
-  app_type: "Schedule"
-  section: "mk22"
+  system: "{IMX_SYSTEM}"           # 系統代碼，從環境變數讀取
+  app: "{IMX_APP}"                 # 應用程式代碼
+  app_type: Schedule               # Schedule | Listener | Web
+  section: MK10                    # 部門代碼
 
 Log:
   version: 1
   formatters:
     format1:
-      format: "[%(asctime)s.%(msecs)03d] %(levelname)s %(tid)s - %(message)s"
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
   handlers:
     console:
       class: logging.StreamHandler
       formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000
+      backupCount: 5
   root:
-    handlers: [console]
-    level: INFO
-
-Database:
-  oracle_main:
-    db_type: oracle
-    host: "db-host"
-    port: 1521
-    service_name: "ORCLCDB"
-    username: "{IMX_UDB_ID}"
-    password: "{IMX_UDB_PWD}"
+    handlers: [console, file]
+    level: INFO                    # PILOT 用 DEBUG，PROD 用 INFO
 ```
 
-## 常見幻覺與禁止事項
+## 環境變數規範
 
-- 不存在 `AesHelper`（正確類別名為 `WecEncryption`）
-- 不存在 `ConfigManager.load_env()`
-- 不存在 `ConfigManager.reload()`
-- 不存在 `LogManager.create_logger()`
-- 不存在 `LogManager.set_level()`
-- 不存在 `OracleManager.query_one()`
-- 不存在 `DatabaseManager.bulk_insert()`
-- 不存在 `JwtHelper.validate_and_decode()`
-- 不存在 `IMXAppContext.get_user()` — 正確為 `get_current_user()`
-- 不存在 `IMXUserContext.get_certificate()` — 正確為 `get_ssl_certificate()`
-- 不存在 `Converter.to_dict()` — 正確為 `protobuf_to_dataframe()` 或 `_get_properties()`
-- 不允許在 SQL 中用 f-string 串接參數
+| 變數名稱 | 說明 | 範例 |
+|---------|------|------|
+| `IMX_ENV` | 執行環境 | PILOT, PROD |
+| `IMX_SYSTEM` | 系統代碼 | IRS, IANALYSIS |
+| `IMX_APP` | 應用程式代碼 | MODEL_MONITOR |
+| `IMX_APP_TYPE` | 應用類型 | Schedule, Listener, Web |
+| `IMX_APP_OWNER` | 負責人 User ID | - |
+
+資料庫認證變數：
+- `IMX_UDB_ID` / `IMX_UDB_PWD`：Oracle
+- `IMX_EDWML2_ID` / `IMX_EDWML2_PWD`：Trino
+- 其他：依 config.yaml 中 `{變數名}` 定義
+
+## ConfigManager 使用
+
+```python
+from wecpy.config_manager import ConfigManager
+ConfigManager('config.yaml')
+
+# 取得 General 設定
+print(ConfigManager.general.system)      # 系統代碼
+print(ConfigManager.general.app)         # 應用程式代碼
+print(ConfigManager.general.app_type)    # 應用類型
+
+# 取得環境變數
+print(ConfigManager.ENV.IMX_ENV)         # PILOT 或 PROD
+
+# 取得共享路徑
+file_path = ConfigManager.get_path(
+    ConfigManager.ENV.IMX_WECTINFO02_HOST,
+    "MK20/MK22/data.csv"
+)
+```
+
+## LogManager 使用
+
+```python
+from wecpy.log_manager import LogManager
+log = LogManager.get_logger()
+
+# 基本日誌
+log.info("應用程式啟動")
+log.debug("除錯訊息")
+log.warning("警告訊息")
+log.error("錯誤訊息")
+
+# 帶 log_key 的日誌（便於 APM 追蹤）
+log.info("處理完成", "process_complete")
+log.error(f"處理失敗: {error}", "process_error")
+```
+
+**禁止事項**：
+- ❌ 禁止使用 `print()`，一律用 `log.info/debug/error`
+- ❌ 禁止在 ConfigManager 初始化前使用 LogManager
+
+## 核心模組速查表
+
+| 功能領域 | 元件 | 說明 |
+|---------|------|------|
+| 安全性 | JwtHelper, AesHelper, SecurityService | JWT 解析、AES 加解密、使用者安全上下文 |
+| SSL 憑證 | IMXUserContext | SSL 憑證取得與快取（每日更新）、gRPC 安全通道建立 |
+| 分散式快取 | DataCacheManager | 透過 gRPC 連線遠端快取服務，支援 TTL 和命名空間 |
+| ETL 基礎 | BaseETL | ETL 抽象基類（purge → extract → transform → load） |
+| 應用程式上下文 | IMXAppContext | 快取存取、當前使用者識別 |
+| 轉換工具 | Converter | Protobuf/Timestamp 轉換、DataFrame 轉換 |
+| ConfigManager 工具 | get_config_dict, get_exe_env, root_path | 載入任意 YAML/JSON、取得環境、取得根路徑 |
+
+## wecpy 元件速查表
+
+| 功能領域 | 元件 | 技能 | 觸發關鍵字 |
+|---------|------|------|-----------|
+| 資料庫 | OracleManager, TrinoManager, SQLServerManager | wecpy-database | Oracle, Trino, SQL Server, 資料庫查詢 |
+| 訊息佇列 | BaseKafkaListener, WecTransport, WecApplication | wecpy-kafka | Kafka, 訊息, Listener, Producer |
+| 監控 | APMManager, COPManager, ElasticsearchManager | wecpy-monitoring | APM, 效能監控, COP 指標, ES |
+| 檔案通訊 | FTPManager, S3BucketManager, NotificationManger, ApiClientManager | wecpy-io | FTP, S3, 通知, API 呼叫 |
+| 工廠資料 | FetcherFactory + ifdc/ieda_datafetcher | wecpy-datafetcher | FDC, EDA, Data Fetcher, 工廠資料 |
+
+## 詳細參考文件
+
+- [專案初始化完整指南](references/project-init.md) — 當使用者要建立新 wecpy 專案、產生完整專案目錄結構時閱讀
+- [ConfigManager 詳細說明](references/config-manager.md) — 當使用者需要進階 config.yaml 設定、動態取值、路徑管理時閱讀
+- [LogManager 詳細說明](references/log-manager.md) — 當使用者需要自訂日誌格式、多 handler、log rotation 設定時閱讀
+- [環境變數完整清單](references/env-variables.md) — 當使用者詢問特定環境變數名稱、用途或設定方式時閱讀
+- [Security 模組（JwtHelper, AesHelper, SecurityService）](references/security.md) — 當使用者需要 JWT 解析、AES 加解密、安全上下文時閱讀
+- [DataCacheManager（分散式快取）](references/data-cache.md) — 當使用者需要 gRPC 遠端快取、TTL 設定、命名空間管理時閱讀
+- [BaseETL（ETL 基礎抽象類）](references/base-etl.md) — 當使用者需要建立 ETL 流程、繼承 BaseETL 抽象類時閱讀
+- [IMXAppContext / IMXUserContext（應用程式/使用者上下文）](references/app-context.md) — 當使用者需要存取快取或取得當前使用者資訊時閱讀
+- [Converter（Protobuf/時間戳轉換工具）](references/converter.md) — 當使用者需要 Protobuf 轉 DataFrame 或時間戳轉換時閱讀
+
+## 資源檔案
+
+- [基礎 config.yaml 模板](assets/base-config.yaml)
+- [main.py 程式模板](assets/main-template.py)
+- [.gitignore 模板](assets/gitignore-template.txt)
+- [requirements.txt 模板](assets/requirements-template.txt)
+- [.env 範例](assets/env-template.txt)

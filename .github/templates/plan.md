@@ -22,6 +22,20 @@
 
 > 📐 **指引**：此區段是給 Dev Skill（AI）的工作指令。每個 Task 應足夠小且可獨立開發、測試。依賴關係須明確標示，以便 Dev Skill 決定開發順序。複雜度分為：低（< 2hr）、中（2–4hr）、高（> 4hr）。
 >
+> ⚠️ **Monorepo 目錄結構約束（前後端同一 repo 時必讀）**：
+>
+> 若本次開發為 Monorepo（前端 + 後端共存於同一 repo），**必須**採用以下頂層目錄分離：
+>
+> ```
+> project-root/
+> ├── frontend/    ← 所有前端 Task 的程式碼路徑前綴
+> └── backend/     ← 所有後端 Task 的程式碼路徑前綴
+> ```
+>
+> - 前端 Task 路徑：`frontend/projects/{system}/...`（WEC Angular）或 `frontend/src/...`（React/Vue）
+> - 後端 Task 路徑：`backend/main.py`、`backend/PROD/`、`backend/models/`...
+> - **禁止**在 repo 根目錄直接放置前後端程式碼
+>
 > ⚠️ **框架初始化前置 Task（必須優先安排，排在所有其他 Task 之前）**：
 >
 > - **Angular 專案**：

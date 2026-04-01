@@ -97,34 +97,14 @@
 | 完整描述模式 | 包含多個功能點的段落描述、客戶訪談紀錄、包含「背景情境」「需求如下」「任務」「今日任務」「解鎖源碼」「完成以下」等結構化描述的輸入 |
 | 任務清單模式 | 輸入包含編號清單（1. 2. 3.）且各項描述功能點、類別或操作、或包含「任務一」「任務二」「Task 1」「T-01」此類格式的輸入               |
 
-### 路由輸出格式
-
-> 路由輸出格式已定義於上方「第一回應強制格式」（格式 A / 格式 B），此處不再重複。
-
 ### 禁止行為
 
 - ❌ **第一個回應不是路由判斷結果就開始產出程式碼或設計**
 - ❌ **偵測到需求關鍵字後，跳過路由判斷直接開始實作**
-- ❌ **對全新系統/大型功能需求，未經 @pm 釐清就直接寫程式碼**
-- ❌ **對包含客戶訪談、多功能點描述的輸入，不經 @pm 就直接產出 UML/ER/程式碼**
-- ❌ **在未建立 `docs/{NNN}-{需求簡述}/` 需求工作區的情況下，就開始產出設計或程式碼**
-- ❌ **以「這是練習題」「這是教學範例」「任務很簡單」為由，跳過路由判斷直接實作**
-- ❌ **輸入中出現類別設計詞（基類、abstract、子類別、介面等）時，不經路由判斷直接產出程式碼**
-- ❌ **以「使用者的需求很明確，不需要 PM」為由，跳過路由閘門**
+- ❌ **以「任務很簡單」「使用者需求很明確」為由，跳過路由閘門**
+- ❌ **輸入包含類別設計詞或設計模式名稱時，不經路由判斷直接產出程式碼**
 
-### Fail-Safe 規則（已整合至 Step 0.5）
-
-> 此規則已內建於流程圖 Step 0.5。若不確定是否該路由，**永遠選擇路由至 @pm**。
-
-### 路由判斷範例（供 AI 自我檢查）
-
-| 使用者輸入（摘要）                                                               | 命中規則                                           | 正確路由    |
-| -------------------------------------------------------------------------------- | -------------------------------------------------- | ----------- |
-| 「定義 BaseExporterTemplate 基類，完成 JSONExporter 與 MarkdownExporter 子類別」 | Step 0.5：新類別設計 + 設計模式（Template Method） | 🔴 @pm      |
-| 「背景情境：客戶說要改 JSON…今日任務：1. 定義基類 2. 完成子類別」                | Step 0.5：客戶對話 + 新類別設計 + 編號任務清單     | 🔴 @pm      |
-| 「幫我用 Strategy Pattern 重構 PaymentService」                                  | Step 0.5：設計模式名稱                             | 🔴 @pm      |
-| 「修一下登入頁面的 CSS 跑版」                                                    | 直接對話：修 bug + ≤ 3 檔案                        | ✅ 直接對話 |
-| 「在既有的 UserService 加一個 getProfile() 方法」                                | Step 1：既有系統中等增強，無新類別                 | 🟡 @dev     |
+> 💡 如不確定是否該路由，**永遠選擇路由至 @pm**。
 
 ---
 
@@ -141,49 +121,22 @@
 
 ---
 
-## 必讀標準文件（依任務類型）
+## 必讀標準文件
 
-| 任務                                     | 必讀標準                                                                  |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| 任何程式碼開發                           | `standards/solid-principles.md` + `standards/design-patterns.md`          |
-| C# / .NET 開發                           | `standards/coding-standard-csharp.md` + `standards/clean-architecture.md` |
-| 前端開發（任何框架）                     | `standards/coding-standard-frontend.md`                                   |
-| Angular / TypeScript 開發                | `standards/coding-standard-angular.md`                                    |
-| Python 開發                              | `standards/coding-standard-python.md` + `standards/clean-architecture.md` |
-| 領域建模                                 | `standards/ddd-guidelines.md`                                             |
-| 架構設計                                 | `standards/clean-architecture.md` + `standards/ddd-guidelines.md`         |
-| 程式碼審查                               | 全部 standards/ 文件                                                      |
-| 使用 iMX Framework (.NET)                | + `frameworks/imxframework/contributing.md`                               |
-| 使用 wecpy (Python)                      | + `frameworks/wec-py/contributing.md`                                     |
-| 使用 WEC 前端框架 (Angular)              | + `frameworks/wec-main/contributing.md`                                   |
-| 使用 CIMWebApiFramework (.NET 4.8)       | + `frameworks/webapi-framework/contributing.md`                           |
-| 使用 CIMWebApiFrameworkCore (.NET 8) ⚠️  | + `frameworks/webapi-framework-core/contributing.md`                      |
-| 使用 iMX.Core.Net (v1.x)                 | + `frameworks/imx-core-net/contributing.md`                               |
-| 部署 / CI/CD（Dockerfile、Jenkinsfile）  | `skills/aip-deploy/SKILL.md`（AIP 部署標準流程）                          |
-| UI/UX 設計（Landing Page、Dashboard 等） | `skills/ui-ux-pro-max/SKILL.md`（UI/UX 設計智慧引擎）                     |
+> 依任務類型自動載入對應的 `standards/` 文件。完整對照表見 `README.md#Standards 文件總覽`。
+>
+> - **任何程式碼**：`standards/solid-principles.md` + `standards/design-patterns.md`
+> - **語言專屬**：`standards/coding-standard-{csharp|python|angular|frontend}.md`
+> - **架構設計**：`standards/clean-architecture.md` + `standards/ddd-guidelines.md`
+> - **框架專屬**：`frameworks/{framework}/contributing.md`（見下方綁定規則）
 
 ---
 
 ## 框架知識庫
 
-專屬框架的 AI 使用指引、開發規範與技能文件統一存放於 `frameworks/` 目錄：
-
-| 框架                                    | 目錄                                | 適用場景                                                                                                       |
-| --------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| iMX.Framework (.NET)                    | `frameworks/imxframework/`          | C# 企業應用程式，含 Oracle/SQL Server/APM 整合 (v2.0 DI-Based)                                                 |
-| wecpy (Python)                          | `frameworks/wec-py/`                | Python 企業級共用函式庫，含 ConfigManager、LogManager、資料整合（非 API 框架，需搭配 FastAPI 等 Web 框架使用） |
-| WEC Angular 前端                        | `frameworks/wec-main/`              | Angular 17+ 企業前端，含 AG Grid、Native Federation（選用 Angular 時適用）                                     |
-| CIMWebApiFramework (.NET 4.8)           | `frameworks/webapi-framework/`      | .NET Framework 4.8 企業 WebAPI，含 Oracle/Security/Alarm 整合                                                  |
-| CIMWebApiFrameworkCore (.NET 8) ⚠️ 棄用 | `frameworks/webapi-framework-core/` | 舊版 .NET 8 WebAPI，正遷移至 iMX.Framework v2.0                                                                |
-| iMX.Core.Net v1.x                       | `frameworks/imx-core-net/`          | Manager-Based 舊版核心，含 Kafka/ES/S3/APM 整合                                                                |
-
-每個框架目錄包含：
-
-- `AGENTS.md` — AI agent 入口指引（Role 定義、Anti-Hallucination 聲明、Skills 導覽）
-- `contributing.md` — 框架開發貢獻規範（SSoT）
-- `instructions/` — 自動載入的 Copilot 指令（依 `applyTo` 規則觸發）
-- `skills/` — 任務型技能文件（開發流程、初始化、功能介紹）
-- `prompts/` — 預設提示詞模板
+> 各框架的 AI 使用指引、開發規範與技能文件統一存放於 `frameworks/` 目錄。
+> 完整框架清單與說明見 `README.md#Frameworks`。
+> 每個框架目錄包含：`AGENTS.md`（AI agent 入口）、`contributing.md`（SSoT）、`instructions/`、`skills/`、`prompts/`。
 
 ---
 
@@ -235,228 +188,113 @@ wec-main (Fork 後的外殼，AI 禁止修改此層)
 
 ### Python 專案 → 強制使用 wecpy 函式庫
 
-所有 Python 專案均應使用 wecpy 函式庫。**wecpy 是企業級共用 Library（非 API 框架）**，提供 ConfigManager、LogManager、DatabaseManager、Security 等基礎設施。使用者仍需自行選擇 API 框架（如 FastAPI、Flask 等）來建立 Web 服務，並將 wecpy 整合其中。
+> **[MUST]** 所有 WEC 內部 Python 後端程式碼，無論新專案或既有專案的擴充，**均強制整合 wecpy**。禁止以裸 Python 標準庫替代 wecpy 已提供的功能（如 `print()`、`os.environ`、`logging`、裸 `cx_Oracle` 等）。
 
-| 條件                                  | 強制行為                                                                                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 偵測到 Python + wecpy 依賴            | 自動載入 `frameworks/wec-py/contributing.md`、`frameworks/wec-py/instructions/wecpy.instructions.md`                                                                                       |
-| 新建 Python 專案 (`@dev new project`) | **強制使用 wecpy**，並**詢問使用者選擇 API 框架**（如 FastAPI、Flask 等），建立結合 wecpy + API 框架的專案結構（`PROD/config.yaml` + `PILOT/config.yaml` + DAO/Service 分層 + API 路由層） |
-| 既有 Python 專案未偵測到 wecpy        | 詢問使用者確認是否使用 wecpy，若確認則引導加入依賴                                                                                                                                         |
-| `instructions_override` 自動填入      | `wecpy.instructions.md`                                                                                                                                                                    |
+**wecpy 是企業級共用 Library（非 API 框架）**，提供 ConfigManager、LogManager、DatabaseManager、Security 等基礎設施。使用者仍需自行選擇 API 框架（如 FastAPI、Flask 等）來建立 Web 服務，並將 wecpy 整合其中。
+
+| 條件                                  | 強制行為                                                                                                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 偵測到 Python + wecpy 依賴            | 自動載入 `frameworks/wec-py/contributing.md`、`frameworks/wec-py/instructions/wecpy.instructions.md`                                                |
+| 新建 Python 專案 (`@dev new project`) | **第一步必詢問識別資訊**（system / app / app_type / section），取得回答後才建立 config.yaml；同時詢問 API 框架選擇，建立 wecpy + API 框架的專案結構 |
+| 既有 Python 專案未偵測到 wecpy        | **停止生成程式碼**，詢問使用者確認是否使用 wecpy，若確認則先引導加入依賴與初始化，完成後才繼續                                                      |
+| 偵測到 Python 但缺少 init 前置結構    | **停止生成程式碼**，直接執行 `wecpy-fix-init` skill 自動掃描缺失項目並修復（不詢問、不等待）                                                        |
+| `instructions_override` 自動填入      | `wecpy.instructions.md`                                                                                                                             |
+
+### .NET 新專案 → 強制收集識別資訊
+
+| 條件                                  | 強制行為                                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 新建 .NET 專案（iMX.Framework）       | **第一步必詢問識別資訊**（ServiceName / Section / DatabaseType / 專案類型），取得回答後才建立 `appsettings.json` 的 `iMXConfig` 區塊 |
+| 新建 .NET 4.8 專案（WebApiFramework） | **第一步必詢問識別資訊**（應用名稱 / Section / DB 連線標識），取得回答後才建立 `Web.config` 連線字串與日誌設定                       |
 
 ### Composite Adapter（Monorepo 場景）
 
 若同一專案包含多個框架（如前端 Angular/React/Vue + 後端 Python）：
 
 - `framework.primary` + `framework.secondary` 分別綁定
-- `framework.scope` 指定各框架負責目錄（如 `angular-wec: "projects/{system}/"`, `python: "backend/"`）
+- `framework.scope` 指定各框架負責目錄（前端固定 `frontend/`，後端固定 `backend/`；WEC Angular 的系統 library 在 `frontend/projects/{system}/`）
 - **兩個框架的規範同時載入**，`instructions_override` 合併兩者
-- 若使用 WEC Angular，前端的 scope 始終為 `projects/{system}/`，不是根目錄
+- 若使用 WEC Angular，Angular 根目錄為 `frontend/`，系統 library 在 `frontend/projects/{system}/`，不是 repo 根目錄
 - 各框架的初始化狀態獨立驗證，任一未通過即中斷引導
 
----
+#### 📁 Monorepo 強制頂層目錄結構
 
-## SOLID 自動檢查觸發規則
-
-以下情境下**主動提醒**可能的 SOLID 違反：
-
-- 類別超過 200 行 → 疑似違反 **SRP**
-- `if-else` / `switch` 超過 5 個分支沿著型別判斷 → 疑似違反 **OCP**，建議 Strategy Pattern
-- 子類別需要 `override` 後改變原有語意或拋出 `NotSupportedException` → 疑似違反 **LSP**
-- 介面方法超過 7 個 → 疑似違反 **ISP**
-- `new ConcreteClass()` 出現在業務邏輯層 → 疑似違反 **DIP**，建議 Factory 或 DI
-
----
-
-## Design Pattern 應用提示
-
-以下情境下**主動建議**對應設計模式（詳見 `standards/design-patterns.md`）：
-
-| 情境                           | 建議模式                 |
-| ------------------------------ | ------------------------ |
-| 需要根據類型執行不同演算法     | Strategy                 |
-| 物件建立過程複雜               | Builder / Factory Method |
-| 需要統一處理一系列物件         | Composite / Iterator     |
-| 需要跨層通知事件               | Observer / Domain Event  |
-| 需要加強功能但不修改既有類別   | Decorator                |
-| 需要整合不相容介面             | Adapter                  |
-| 多步驟固定流程 with 可替換步驟 | Template Method          |
-| 需要攔截/控制物件存取          | Proxy                    |
-
----
-
-## 場景分流指引（何時使用什麼流程）
-
-**並非所有開發都需要啟動完整框架。** 根據變更規模選擇適當流程：
-
-| 場景            | 典型範例                                             | 使用流程                                                       | 產出文件                                                                                                                        |
-| --------------- | ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **🔵 直接對話** | 修 bug、改樣式、調邏輯、加欄位、重命名、小重構       | 直接在 Chat 中描述，不需呼叫任何 @agent                        | 無（直接交付程式碼）                                                                                                            |
-| **🟡 快速增強** | 既有系統加新 API endpoint、新增頁面元件、加一組 CRUD | `@dev [需求描述]` 直接觸發 Inner Loop                          | LoopState + 程式碼                                                                                                              |
-| **🟢 完整流程** | 全新系統開發、大型功能模組、跨多層架構變更           | `@pm` → ⛔審核 → `@architect` → ⛔審核 → `@dev`（含 Reporter） | `docs/001-需求簡述/spec.md` → `docs/001-需求簡述/FRD.md` + `plan.md` → 程式碼 → `docs/001-需求簡述/final-report.md`（自動產出） |
-
-### 🔵 直接對話（Quick Fix）
-
-適用條件（符合**任一**即可）：
-
-- 影響範圍 ≤ 3 個檔案
-- 不涉及新的領域概念或架構層級
-- 不需要新增測試檔案（僅修改既有測試）
-- 使用者明確表達只是「小改」「調一下」「修個 bug」
-
-**排除條件**（符合任一則**不適用**直接對話，應進入路由判斷）：
-
-- 輸入包含「系統」「模組」「全新」「管理」「平台」等規模指示詞
-- 輸入描述多個功能點或包含結構化需求描述（如客戶訪談、Given-When-Then）
-- 輸入涉及 Domain Model、ER Model、UML 等領域建模需求
-
-> **規範仍然適用**：即使是直接對話，程式碼仍須遵守 `standards/` 中的編碼標準與 SOLID 原則。
-> 差異在於不啟動 Inner Loop 的自動化測試/審查/自癒循環。
-
-### 🟡 快速增強（Enhance Existing System）
-
-適用條件：
-
-- 在既有系統上新增中等規模功能
-- 需求已足夠明確，不需要 PM 問答釐清
-- 架構方向已確定，不需要架構師設計
-
-使用方式：
+> ⛔ **強制規則**：所有前端 + 後端共存的 Monorepo 新專案，**必須**採用以下頂層目錄分離，**禁止**在 repo 根目錄直接放置前後端程式碼。
 
 ```
-@dev 在現有的 OrderModule 加上退貨功能，包含 API + Service + 單元測試
+project-root/
+├── frontend/    ← 前端程式碼根目錄（Angular / React / Vue）
+└── backend/     ← 後端程式碼根目錄（wecpy / .NET）
 ```
 
-> @dev 會自動執行 Project Discovery（偵測既有專案結構），然後進入 Inner Loop。
+| 框架                           | Monorepo 中的實際路徑                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| WEC Angular（wec-main）        | `frontend/`（fork clone 至此；系統 library 在 `frontend/projects/{system}/`） |
+| 其他前端框架（React / Vue 等） | `frontend/`（框架 CLI 初始化在此）                                            |
+| Python wecpy                   | `backend/`（`main.py`、`PROD/`、`PILOT/`、`models/` 等全在此）                |
+| .NET（iMX.Framework）          | `backend/`（Solution / Project 在此）                                         |
 
-### 🟢 完整流程（New System / Major Feature）
+**建立 Monorepo 順序（AI 必須遵守）：**
 
-適用條件：
+1. 先在 repo 根目錄建立 `frontend/` 與 `backend/` 兩個目錄
+2. 再於 `frontend/` 內執行前端框架初始化（fork / ng new / create-react-app 等）
+3. 再於 `backend/` 內執行後端框架初始化（wecpy-init / imx-init 等）
 
-- 全新專案從零開始
-- 大型功能需要需求釐清與架構設計
-- 涉及多個 Bounded Context 或跨系統整合
-- 輸入包含客戶訪談紀錄或多個功能點的結構化描述
-- 需求涉及 Domain Model、ER Model、UML 類別圖等領域建模
+---
 
-**典型觸發輸入範例**（以下類型的輸入應路由至 @pm，而非直接實作）：
+## SOLID / Design Pattern 自動提示
 
-- 「我要做一個 XX 管理系統」
-- 「需求如下：1. ... 2. ... 3. ...」
-- 包含客戶訪談紀錄的段落
-- 「請根據以上對話，推導出 Domain Model / ER Model」
-- 「我想建立一個新的模組/平台/系統」
-
-> 🚨 **完整流程包含兩道人工審核閘門**，AI 在每道閘門必須停止並等待使用者確認：
+> 程式碼審查或開發時，AI 應根據以下文件主動提醒 SOLID 違反與適用設計模式：
 >
-> 1. **需求審核閘門**：`@pm` 產出 `spec.md` 後停止 → 主管/PM 審核 → 使用者手動輸入 `@architect` 繼續
-> 2. **架構審核閘門**：`@architect` 產出 `FRD.md` + `plan.md` 後停止 → 架構師/技術主管審核 → 使用者手動輸入 `@dev` 繼續
+> - **SOLID 觸發規則與 CR 檢查清單**：`standards/solid-principles.md#自動偵測觸發規則`
+> - **Design Pattern 情境對應**：`standards/design-patterns.md#模式速查表`
 
-**Angular 新專案完整流程（選用 wec-main 時）：**
+---
 
-```
-@pm → spec.md → ⛔【需求審核閘門】→ 使用者確認
-  → @architect → FRD.md + plan.md → ⛔【架構審核閘門】→ 使用者確認
-  → fork wec-main（wec-framework-install skill）
-  → 建立系統 library（wec-system-init skill：ng generate library "{system}"）
-  → @dev（Inner Loop，程式碼僅在 projects/{system}/ 下生成）
-```
+## 場景分流指引
 
-> ⚠️ 使用 wec-main 的 Angular 專案必須在 `@dev` 之前完成 fork 流程與系統建立。
-> FRD.md 的前端目錄結構僅規劃 `projects/{system}/src/lib/system/` 內部，
-> **禁止重新生成 wec-main 的外層結構**（`angular.json`、`src/app/`、`tsconfig.json` 等由模板提供）。
-> 若未完成 fork，`@dev` 會自動偵測並引導至 `wec-framework-install` skill。
+> 詳細說明與框架特定流程見 `README.md#開發流程概覽`。
 
-**其他前端框架新專案完整流程：**
+| 場景            | 何時使用                               | 做法                                            |
+| --------------- | -------------------------------------- | ----------------------------------------------- |
+| **🔵 直接對話** | 修 bug、改樣式、調邏輯（≤ 3 檔案）     | 直接在 Chat 描述，不需呼叫 @agent               |
+| **🟡 快速增強** | 既有系統加功能，需求已明確、架構已確定 | `@dev [需求描述]` 直接觸發 Inner Loop           |
+| **🟢 完整流程** | 全新系統、大型功能、跨多層架構         | `@pm` → ⛔審核 → `@architect` → ⛔審核 → `@dev` |
 
-```
-@pm → spec.md → ⛔【需求審核閘門】→ 使用者確認
-  → @architect → FRD.md + plan.md → ⛔【架構審核閘門】→ 使用者確認
-  → 依選型建立前端專案結構 → @dev（Inner Loop）
-```
+> **注意**：即使是直接對話，程式碼仍須遵守 `standards/` 中的編碼標準與 SOLID 原則。
 
-> 📌 不論使用何種前端框架，皆須符合 `standards/coding-standard-frontend.md` 中的基礎設計原則。
+### 🟢 完整流程包含兩道人工審核閘門
 
-**Python 新專案完整流程：**
+1. **需求審核**：`@pm` 產出 `spec.md` 後停止 → 主管/PM 審核 → 使用者手動輸入 `@architect`
+2. **架構審核**：`@architect` 產出 `FRD.md` + `plan.md` 後停止 → 架構師審核 → 使用者手動輸入 `@dev`
 
-```
-@pm → spec.md → ⛔【需求審核閘門】→ 使用者確認
-  → @architect → FRD.md + plan.md → ⛔【架構審核閘門】→ 使用者確認
-  → 選擇 API 框架 + 初始化 wecpy 專案結構 → @dev（Inner Loop）
-```
-
-> ⚠️ Python 專案必須使用 wecpy 函式庫（Library）。wecpy 不是 API 框架，需搭配 FastAPI、Flask 等 Web 框架使用。`@dev` 會自動偵測 wecpy 依賴，若未偵測到則強制引導初始化，並詢問使用者選擇 API 框架。
-
-**Monorepo（前端 + Python）完整流程：**
-
-```
-@pm → spec.md → ⛔【需求審核閘門】→ 使用者確認
-  → @architect → FRD.md + plan.md → ⛔【架構審核閘門】→ 使用者確認
-  → 依前端選型建立專案結構（若使用 wec-main：fork + wec-system-init）
-  → 選擇 API 框架 + 初始化 wecpy（Python scope: backend/）
-  → @dev（Composite Adapter）
-```
-
-> 📝 Composite Adapter 會同時載入兩個框架的規範。若使用 WEC Angular，其 scope 為 `projects/{system}/`，Python 的 scope 為 `backend/`。
+> 🚨 AI 在每道閘門**必須完全停止**，禁止自動觸發下一階段。
 
 ---
 
 ## 開發流程引導
 
-### 外部決策環（主管/PM 主導，使用 @agent）— 含人工審核閘門
+### 外部決策環（主管/PM 主導，使用 @agent）
 
 ```
-@pm        → 產出 docs/{NNN}-{需求簡述}/spec.md
-             ⛔ 【需求審核閘門】→ 停止，等待主管/PM 審核
-             ✅ 審核通過後，使用者手動輸入 @architect 指令
-
-@architect → 產出 docs/{NNN}-{需求簡述}/FRD.md + plan.md
-             ⛔ 【架構審核閘門】→ 停止，等待架構師/技術主管審核
-             ✅ 審核通過後，使用者手動輸入 @dev 指令
+@pm        → 產出 docs/{NNN}-{需求簡述}/spec.md → ⛔ 需求審核閘門
+@architect → 產出 docs/{NNN}-{需求簡述}/FRD.md + plan.md → ⛔ 架構審核閘門
 ```
-
-> 🚨 **強制規則：外部決策環的每個階段結束後，AI 必須完全停止並等待人工審核。**
->
-> - `@pm` 產出 spec.md 後 → **禁止**自動觸發 `@architect`，必須等待使用者確認後手動輸入
-> - `@architect` 產出 FRD.md + plan.md 後 → **禁止**自動觸發 `@dev`，必須等待使用者確認後手動輸入
-> - 這兩道閘門確保主管/PM/架構師有機會審核交付物，避免 AI 自行跳過審查直接進入下一階段
 
 ### 內部自動環（AI 自主，使用 @dev）
 
 ```
-@dev      → 觸發 Inner Auto Loop（開發 → 測試 → 自癒 → 審查 → 整合測試 → 自動產出 final-report.md）
-@reviewer → 單獨執行程式碼審查
-@reporter → 重新產出 / 補充 final-report.md（@dev 已自動產出，此步驟可選）
+@dev      → Inner Auto Loop（開發 → 測試 → 自癒 → 審查 → 整合測試 → 自動產出 final-report.md）
+@reviewer → 單獨執行程式碼審查（可選）
+@reporter → 重新產出 final-report.md（可選，@dev 已自動產出）
 ```
 
-> ⚠️ **Phase 完整性**：`@dev` 的 Inner Loop 應自動執行完整的 Phase A→B→C→D→E 全流程。
-> 若觀察到 `@dev` 在 Phase E 完成前停止（例如只做完開發和測試就結束），請手動補充：
->
-> - `@reviewer` — 補充執行 Phase C（程式碼審查）
-> - `@reporter` — 補充執行 Phase E（產出 final-report.md）
-
-> 💡 **提示**：直接在 Chat 中描述的小調整不會觸發上述流程，只有明確呼叫 `@agent` 時才會啟動對應框架。
+> ⚠️ `@dev` 的 Inner Loop 應自動執行 Phase A→B→C→D→E 全流程。
+> 若在 Phase E 前停止，可手動補充 `@reviewer`（Phase C）或 `@reporter`（Phase E）。
 
 ### 需求工作區約定
 
-完整流程的文件產出預設放在專案根目錄下的 `docs/`，並為每個需求建立獨立資料夾：
-
-```
-docs/
-└── 001-需求簡述/
-	├── spec.md
-	├── FRD.md
-	├── plan.md
-	├── final-report.md
-	├── review-report.md
-	├── loop-summary.md
-	├── integration-test-report.md
-	└── diagnostic-report.md
-```
-
-- 命名規則：`{三位數流水號}-{需求簡述}`，例如 `001-user-query-api`
-- 若使用者未指定資料夾名稱，預設先在 `docs/` 下建立下一個可用編號的需求工作區
-- `@pm`、`@architect`、`@dev`、`@reviewer`、`@reporter` 應優先讀寫同一個需求工作區，避免文件散落在根目錄或 `reports/`
+完整流程文件放在 `docs/{NNN}-{需求簡述}/`（三位數流水號 + 短橫線簡述），同一需求的所有文件集中管理。
 
 ---
 

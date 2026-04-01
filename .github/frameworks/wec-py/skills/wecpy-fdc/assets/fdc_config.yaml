@@ -1,0 +1,49 @@
+# FDC 資料擷取設定檔
+# 使用方式：FdcClient("fdc_config.yaml")
+
+# 廠區位置（必填）：ct（中科廠）或 kh（高雄廠）
+location: ct
+
+# 資料輸出目錄（可選）
+# 預設值依廠區：
+#   ct → //10.6.11.53/phm_project_tc_fab
+#   kh → //10.6.11.53/phm_project_kh_fab
+# 開發環境建議覆寫為本地路徑：
+output_dir: ./fdc_output
+
+# Cycle 編號（可選，預設 1）
+# 查詢 raw_data / raw_statistic 時會自動篩選 cycleNumber = cycle_number
+cycle_number: 1
+
+# ============================================================
+# 資料類型區塊（raw_data / raw_statistic / run_data）
+# 每個區塊為 list，可以有多組查詢條件
+# ============================================================
+
+raw_data:
+  - eqp_id: EQUIPMENT_ID          # 設備 ID（必填）
+    chambers:                       # 可選：Chamber 篩選
+      - CHAMBER_A
+    recipes: []                     # 可選：Recipe 篩選
+    parameters: []                  # 可選：Parameter 篩選
+    svids: []                       # 可選：SVID 篩選
+    products: []                    # 可選：Product 篩選
+    mes_steps: []                   # 可選：MES Step 篩選
+    recipe_steps: []                # 可選（僅 raw_data / raw_statistic）
+
+    # 時間範圍（必填，需搭配 eqp_id）
+    date_ranges:
+      - start: "2025-09-01 00:00:00"
+        end: "2025-09-02 00:00:00"
+
+# raw_statistic:
+#   - eqp_id: EQUIPMENT_ID
+#     date_ranges:
+#       - start: "2025-09-01 00:00:00"
+#         end: "2025-09-02 00:00:00"
+
+# run_data:
+#   - eqp_id: EQUIPMENT_ID
+#     date_ranges:
+#       - start: "2025-09-01 00:00:00"
+#         end: "2025-09-02 00:00:00"

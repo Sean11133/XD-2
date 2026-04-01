@@ -1,0 +1,135 @@
+# =============================================================================
+# wecpy 資料庫設定模板
+#
+# 說明：
+#   - 本檔案包含 Oracle、Trino、SQL Server 的完整設定範例
+#   - 複製需要的區塊到您的 config.yaml
+#   - {變數名} 會自動替換為對應的環境變數
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 基礎設定（必要）
+# -----------------------------------------------------------------------------
+General:
+  system: "{IMX_SYSTEM}"
+  app: "{IMX_APP}"
+  app_type: Schedule
+  section: MK10
+
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000
+      backupCount: 5
+  root:
+    handlers: [console, file]
+    level: INFO
+
+# -----------------------------------------------------------------------------
+# Database 區塊
+# 包含 Oracle、Trino、SQL Server 設定範例
+# -----------------------------------------------------------------------------
+Database:
+  # ===========================================================================
+  # Oracle 資料庫
+  # Manager: OracleManager
+  # 用途：企業級交易資料庫
+  # ===========================================================================
+  
+  # TRAINDB - 訓練/測試資料庫
+  TRAINDB:
+    type: oracle
+    host: 10.18.20.35
+    port: 1531
+    username: "{IMX_TRAINDB_ID}"
+    password: "{IMX_TRAINDB_PWD}"
+    service: TRAINDB
+  
+  # UDB - 通用 Oracle 資料庫（範例）
+  # UDB:
+  #   type: oracle
+  #   host: your_oracle_host
+  #   port: 1521
+  #   username: "{IMX_UDB_ID}"
+  #   password: "{IMX_UDB_PWD}"
+  #   service: YOUR_SERVICE_NAME
+
+  # ===========================================================================
+  # Trino 資料庫
+  # Manager: TrinoManager
+  # 用途：大數據查詢引擎
+  # ===========================================================================
+  
+  # EDWML2 - 資料倉儲
+  edwml2:
+    type: trino
+    host: edwml2
+    port: 18081
+    catalog: udpdb
+    username: "{IMX_EDWML2_ID}"
+    password: "{IMX_EDWML2_PWD}"
+  
+  # 其他 Trino 連線（範例）
+  # ccai:
+  #   type: trino
+  #   host: trino_host
+  #   port: 8080
+  #   catalog: ccai
+  #   username: "{TRINO_USER}"
+  #   password: "{TRINO_PWD}"
+
+  # ===========================================================================
+  # SQL Server 資料庫
+  # Manager: SQLServerManager
+  # 用途：報表資料庫
+  # ===========================================================================
+  
+  # Report - 報表資料庫
+  report:
+    type: sqlserver
+    host: 10.18.20.197
+    port: 1435
+    username: "{IMX_ID}"
+    password: "{IMX_PWD}"
+    service: iMX_Report
+  
+  # 其他 SQL Server 連線（範例）
+  # analytics:
+  #   type: sqlserver
+  #   host: sqlserver_host
+  #   port: 1433
+  #   username: "{SQLSERVER_USER}"
+  #   password: "{SQLSERVER_PWD}"
+  #   service: AnalyticsDB
+
+# =============================================================================
+# 環境變數設定（.env 檔案）
+# =============================================================================
+#
+# # Oracle
+# IMX_TRAINDB_ID=your_oracle_username
+# IMX_TRAINDB_PWD=your_oracle_password
+# IMX_UDB_ID=your_udb_username
+# IMX_UDB_PWD=your_udb_password
+#
+# # Trino
+# IMX_EDWML2_ID=your_trino_username
+# IMX_EDWML2_PWD=your_trino_password
+#
+# # SQL Server
+# IMX_ID=your_sqlserver_username
+# IMX_PWD=your_sqlserver_password
+#
+# =============================================================================

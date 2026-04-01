@@ -1,0 +1,49 @@
+# wecpy 標準專案結構 — Schedule 排程任務
+#
+# 使用方式：Agent 在 Phase 0/Phase 4 時參考此結構建立目錄骨架
+# 依 app_type 調整（Listener 加 listeners/ + handlers/，Web 加 controllers/）
+
+# --- 環境設定 ---
+PROD/config.yaml          # 正式環境設定（由 wecpy-core skill 的 assets/base-config.yaml 為基礎）
+PILOT/config.yaml         # 測試環境設定
+.env                      # 環境變數（不進 git）
+.gitignore                # Git 忽略規則
+requirements.txt          # 相依套件
+
+# --- 程式碼 ---
+main.py                   # 進入點：ConfigManager 初始化 → 組裝 DAO/Service → 執行
+
+models/                   # 資料模型層（零依賴）
+  __init__.py
+  # your_model.py         # SQLAlchemy Model（對應 DB table）
+  # your_dataclass.py     # dataclass（Service 間傳遞的資料物件）
+  # exceptions.py         # 自定義 exception 層級
+
+daos/                     # 資料存取層（封裝 wecpy Manager）
+  __init__.py
+  # your_dao.py           # 封裝 OracleManager / FTPManager / S3BucketManager 等
+
+services/                 # 業務邏輯層（純邏輯，不直接用 wecpy Manager）
+  __init__.py
+  # your_service.py       # 業務邏輯，透過 DAO 注入取得資料
+
+utils/                    # 共用工具
+  __init__.py
+
+tests/                    # 測試
+  __init__.py
+  golden/                 # Characterization tests（固定現有行為）
+  unit/                   # Unit tests（業務邏輯）
+  integration/            # Integration tests（I/O 邊界）
+
+log/                      # 日誌輸出（LogManager 自動寫入）
+
+# --- Listener app_type 額外目錄 ---
+# listeners/              # Kafka Listener（繼承 BaseKafkaListener）
+#   __init__.py
+# handlers/               # 事件處理器（解析訊息 → 路由到 Service）
+#   __init__.py
+
+# --- Web app_type 額外目錄 ---
+# controllers/            # 請求處理（WecApplication callback → 呼叫 Service）
+#   __init__.py

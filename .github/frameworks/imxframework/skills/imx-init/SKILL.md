@@ -7,13 +7,30 @@ description: This skill should be used when the user asks to "建立新專案", 
 
 ## 執行步驟
 
-### Step 1 — 確認專案類型
+### ⭐ Step 0 — 強制詢問專案識別資訊（開始任何作業前必做）
 
-詢問使用者：
+**在產生任何檔案或程式碼之前，必須向使用者詢問並等待回答：**
 
-- Web API 專案？
-- Console 應用程式？
-- 其他（Class Library、Worker Service）？
+```
+請提供以下專案識別資訊，將填入 appsettings.json：
+
+1. ServiceName（APM 服務識別名）：例如 WEC_MODEL_MONITOR、WEC_DATA_SYNC
+2. Section（部門代碼）：例如 MK22、MK20、MK10
+3. DatabaseType：僅允許 Oracle │ SqlServer
+4. 專案類型： Web API │ Console App │ Worker Service
+```
+
+> 若使用者尚未確認上述四項，禁止建立任何檔案。直到回答完成，再進入 Step 1。
+
+---
+
+### Step 1 — 確認專案類型（已於 Step 0 回答，此處確認細節）
+
+根據 Step 0 回答選擇對應初始化模式：
+
+- **Web API** → Step 3
+- **Console App / Worker Service** → Step 4
+- **其他** → 詢問進一步
 
 ### Step 2 — NuGet 套件安裝
 
@@ -51,15 +68,17 @@ IMXFramework.Initialize(new iMXConfig
 });
 ```
 
-### Step 5 — appsettings.json 設定
+### Step 5 — appsettings.json 設定（包含 Step 0 收集的識別資訊）
 
 ```json
 {
   "iMXConfig": {
-    "DatabaseType": "Oracle",
-    "ConnectionString": "User Id=...;Password=...;Data Source=...",
+    "ServiceName": "<Step 0 的 ServiceName>",
+    "Section": "<Step 0 的 Section>",
+    "DatabaseType": "<Oracle | SqlServer>",
+    "ConnectionString": "...",
     "EnableAPM": true,
-    "APMServiceName": "MyApp",
+    "APMServiceName": "<Step 0 的 ServiceName>",
     "APMServerUrl": "http://apm-server:8200",
     "LogLevel": "Information"
   }

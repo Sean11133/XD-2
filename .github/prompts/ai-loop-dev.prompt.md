@@ -19,7 +19,18 @@ description: Developer Phase — 依據 spec/plan 實作程式碼，自動根據
 3. 讀取 spec.yaml 或 plan.md 的指定 Task
 4. 若 FRD.md 存在 Section 1.5 規範基線表 → 讀取並記錄約束條件（此為本次開發的硬性基線）
 5. 若為新 Angular 專案且 fork_status=NOT_CONFIGURED → 中斷，執行 wec-framework-install skill
-6. 若為新 Python 專案且 wecpy_initialized=false → 中斷，執行 wecpy-init.prompt.md
+6. 若 Task 框架為 Python（新專案或既有專案）→ 執行下列 wecpy 前置確認：
+   a. 若為【新專案】且 config.yaml 中 General.app / General.system / General.app_type / General.section 尚未確認
+      → 中斷，向使用者詢問：system、app、app_type（Schedule|Listener|Web）、section
+      → 取得回答後填入雙環境 config.yaml，再繼續
+   b. 若 wecpy_initialized=false 或 requirements.txt 未含 wecpy 或缺少 config.yaml / main.py 初始化順序 → 中斷，直接執行 `wecpy-fix-init` skill（自動掃描修復，不詢問 → 修復完成後再繼續任務）
+   c. 確認 PROD/config.yaml + PILOT/config.yaml 存在，否則中斷執行 `wecpy-fix-init` skill
+   d. 確認 main.py 進入點首兩行為 ConfigManager import + init（連續，中間無插入），否則中斷執行 `wecpy-fix-init` skill
+   e. 上述全部通過後，才允許繼續開發任務
+7. 若 Task 框架為 .NET（新專案）→ 執行下列 iMX 前置確認：
+   a. 若 appsettings.json 中 iMXConfig.ServiceName / iMXConfig.Section 尚未確認
+      → 中斷，向使用者詢問：ServiceName（APM 識別名）、Section（部門代碼）、DatabaseType、專案類型
+      → 取得回答後填入 appsettings.json，再繼續
 ```
 
 ## 開發工作流程
@@ -37,21 +48,40 @@ description: Developer Phase — 依據 spec/plan 實作程式碼，自動根據
 
 依當前 Task 性質，主動查詢是否有可用的開發 Skill：
 
-| Task 性質                          | 查詢位置                                                          |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| Angular 新頁面骨架 / 選版型        | `frameworks/wec-main/skills/wec-page-scaffold/`                   |
-| Angular 頁面 / 表格元件            | `frameworks/wec-main/skills/wec-aggrid-page/`                     |
-| Angular 表單開發                   | `frameworks/wec-main/skills/wec-reactive-form-pattern/`           |
-| Angular Dialog / 彈窗              | `frameworks/wec-main/skills/wec-dialog-pattern/`                  |
-| Angular 選單/路由                  | `frameworks/wec-main/skills/wec-menu-development/`                |
-| Angular CRUD Service + DataService | `frameworks/wec-main/skills/wec-service-dataservice-crud/`        |
-| Angular 廢棄元件處理               | `frameworks/wec-main/skills/wec-migration-deprecated-components/` |
-| Python wecpy 基礎設施整合          | `frameworks/wec-py/skills/wecpy-core/`                            |
-| Python 資料整合（API/ES/ETL）      | `frameworks/wec-py/skills/wecpy-data-integration/`                |
-| Python Kafka / 通知                | `frameworks/wec-py/skills/wecpy-messaging/`                       |
-| .NET 新專案初始化                  | `frameworks/imxframework/skills/imx-init/`                        |
+| Task 性質                            | 查詢位置                                                          |
+| ------------------------------------ | ----------------------------------------------------------------- |
+| Angular 新頁面骨架 / 選版型          | `frameworks/wec-main/skills/wec-page-scaffold/`                   |
+| Angular 頁面 / 表格元件              | `frameworks/wec-main/skills/wec-aggrid-page/`                     |
+| Angular 表單開發                     | `frameworks/wec-main/skills/wec-reactive-form-pattern/`           |
+| Angular Dialog / 彈窗                | `frameworks/wec-main/skills/wec-dialog-pattern/`                  |
+| Angular 選單/路由                    | `frameworks/wec-main/skills/wec-menu-development/`                |
+| Angular CRUD Service + DataService   | `frameworks/wec-main/skills/wec-service-dataservice-crud/`        |
+| Angular 廢棄元件處理                 | `frameworks/wec-main/skills/wec-migration-deprecated-components/` |
+| Python wecpy 基礎設施整合            | `frameworks/wec-py/skills/wecpy-core/`                            |
+| Python 資料庫操作（Oracle/Trino/SS） | `frameworks/wec-py/skills/wecpy-database/`                        |
+| Python gRPC 低階資料擷取             | `frameworks/wec-py/skills/wecpy-datafetcher/`                     |
+| Python FDC 高階擷取（YAML 驅動）     | `frameworks/wec-py/skills/wecpy-fdc/`                             |
+| Python 檔案傳輸 / IO / 通知          | `frameworks/wec-py/skills/wecpy-io/`                              |
+| Python Kafka / 事件驅動              | `frameworks/wec-py/skills/wecpy-kafka/`                           |
+| Python 監控 / APM / Prometheus / ES  | `frameworks/wec-py/skills/wecpy-monitoring/`                      |
+| Python 舊專案重構 / POC 上線         | `frameworks/wec-py/skills/wecpy-refactor/`                        |
+| .NET 新專案初始化                    | `frameworks/imxframework/skills/imx-init/`                        |
 
 若找到對應 Skill → **讀取該 Skill 的 SKILL.md**，確保生成的程式碼符合框架慣例與既定結構。
+
+**⚠️ Python 後端 Task 強制決策（if-then）：**
+
+- 若 Task 涉及 **Python 後端任何功能開發** → MUST 先確認 wecpy 初始化三大前置（見執行前置 Step 6），未通過則中斷
+- 若 Task 涉及**設定管理 / 環境變數讀取** → MUST 使用 `ConfigManager`，禁止 `os.environ` 或 hardcode
+- 若 Task 涉及 **Logging / 日誌輸出** → MUST 使用 `LogManager.get_logger()`，禁止裸 `print()` 或 `logging`
+- 若 Task 涉及**資料庫操作** → MUST 讀取 `wecpy-database` skill，禁止裸 DB 連線
+- 若 Task 涉及 **FDC / 製程資料** → 先判斷使用 `wecpy-fdc`（高階）或 `wecpy-datafetcher`（gRPC 低階）
+- 若 Task 涉及 **Kafka / 事件驅動** → MUST 讀取 `wecpy-kafka` skill
+- 若 Task 涉及**檔案傳輸 / S3 / Email / HTTP** → MUST 讀取 `wecpy-io` skill
+- 若 Task 涉及 **APM / Prometheus / ES 監控** → MUST 讀取 `wecpy-monitoring` skill
+- 若 Task 為**重構舊 Python 專案** → MUST 讀取 `wecpy-refactor` skill，先盤點再動手
+
+---
 
 **⚠️ Angular 前端 Task 強制決策（if-then）：**
 

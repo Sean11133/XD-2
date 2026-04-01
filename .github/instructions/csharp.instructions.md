@@ -2,106 +2,22 @@
 applyTo: "**/*.cs"
 ---
 
-# C# / .NET 8 編碼標準摘要
+# C# / .NET 8 編碼標準（快速參考）
 
-> 完整標準：`standards/coding-standard-csharp.md`
+> 📌 **完整標準**：`standards/coding-standard-csharp.md`（命名慣例、.NET 8 語法、Clean Architecture、非同步、EF Core、測試等全部規範）
+>
+> 本檔僅列出**自動載入時的提醒重點**與完整標準中未涵蓋的 **TFM 檢測規則**。
 
-## 命名慣例
+## 關鍵提醒
 
-| 對象             | 規範            | 範例                          |
-| ---------------- | --------------- | ----------------------------- |
-| 類別、介面、方法 | PascalCase      | `OrderService`, `IRepository` |
-| 參數、區域變數   | camelCase       | `orderId`, `customerName`     |
-| 私有欄位         | `_camelCase`    | `_orderRepository`            |
-| 常數             | PascalCase      | `MaxRetryCount`               |
-| 非同步方法       | 加 `Async` 尾綴 | `GetOrderAsync()`             |
-
-## .NET 8 必用語法
-
-```csharp
-// ✅ File-Scoped Namespace
-namespace Company.Project.Domain;
-
-// ✅ Primary Constructor（DI 注入）
-public class OrderService(IOrderRepository repo, ILogger<OrderService> logger)
-{
-    public async Task<Order> GetOrderAsync(Guid id, CancellationToken ct = default)
-        => await repo.GetByIdAsync(id, ct) ?? throw new NotFoundException(id);
-}
-
-// ✅ Pattern Matching（優先於 if-else）
-var result = order.Status switch
-{
-    OrderStatus.Pending   => ProcessPending(order),
-    OrderStatus.Confirmed => ProcessConfirmed(order),
-    _                     => throw new InvalidOperationException($"Unknown status: {order.Status}")
-};
-
-// ✅ Collection Expression（.NET 8）
-List<string> tags = ["urgent", "premium"];
-
-// ✅ Nullable Reference Types（必須啟用）
-// <Nullable>enable</Nullable> in .csproj
-```
-
-## Clean Architecture 分層規則
-
-```
-Domain/        ← 無任何框架引用（!using EF Core, MediatR 等）
-Application/   ← Use Case / Command / Query，依賴 Domain Interface
-Infrastructure/← EF Core, 外部服務實作
-Presentation/  ← Controller, 輸入驗證（FluentValidation）
-```
-
-## 非同步強制規則
-
-```csharp
-// ✅ 所有 I/O 操作必須 async，傳遞 CancellationToken
-public async Task<IReadOnlyList<Order>> GetActiveOrdersAsync(CancellationToken ct)
-    => await _ctx.Orders.Where(o => o.IsActive).AsNoTracking().ToListAsync(ct);
-
-// ❌ 禁止阻塞
-var result = GetOrderAsync().Result;  // 禁止
-GetOrderAsync().Wait();               // 禁止
-```
-
-## EF Core 規範
-
-```csharp
-// ✅ 讀取用 AsNoTracking
-var orders = await _ctx.Orders.AsNoTracking().ToListAsync(ct);
-
-// ✅ Include 明確載入，禁止 Lazy Loading
-var order = await _ctx.Orders
-    .Include(o => o.Items)
-    .FirstOrDefaultAsync(o => o.Id == id, ct);
-```
-
-## 測試規範（xUnit）
-
-```csharp
-// 命名：MethodName_StateUnderTest_ExpectedBehavior
-[Fact]
-public async Task GetOrder_WhenOrderNotFound_ThrowsNotFoundException()
-{
-    // Arrange
-    var repo = Substitute.For<IOrderRepository>();
-    repo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Order?)null);
-    var sut = new OrderService(repo, NullLogger<OrderService>.Instance);
-
-    // Act & Assert
-    await sut.Invoking(s => s.GetOrderAsync(Guid.NewGuid()))
-             .Should().ThrowAsync<NotFoundException>();
-}
-```
-
-## 禁止事項
-
-- ❌ Service Locator（`IServiceProvider.GetService<T>()`）
-- ❌ `new ConcreteRepository()` 在業務邏輯層
-- ❌ Domain Layer 引用 `Microsoft.EntityFrameworkCore`
-- ❌ 省略 `CancellationToken`
-- ❌ `catch (Exception e) {}` 空 catch 或過寬 catch
+- **File-Scoped Namespace**：強制使用 `namespace Foo;`（.NET 8）
+- **Primary Constructor**：DI 注入優先使用 Primary Constructor
+- **Pattern Matching**：優先於 if-else 判斷
+- **Collection Expression**：`List<string> tags = ["a", "b"];`（.NET 8）
+- **Nullable Reference Types**：必須啟用 `<Nullable>enable</Nullable>`
+- **非同步**：所有 I/O 操作必須 `async`，傳遞 `CancellationToken`
+- **EF Core**：讀取用 `AsNoTracking()`，禁止 Lazy Loading
+- **禁止**：Service Locator、`new ConcreteClass()` 在業務層、Domain 引用 EF Core、`.Result` / `.Wait()`
 
 ---
 

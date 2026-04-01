@@ -59,19 +59,34 @@ Domain Model / ER Model / UML / 類別圖 / 架構圖
 
 **C. 技術棧（若未提及，必問）**
 
-- 這個功能屬於哪個系統？（.NET 8 / Python / 其他）
-- 前端技術選型？（Angular、React、Vue、原生 Web 或其他）
+**步驟一：優先詢問後端技術**
 
-> 📋 **技術棧參考**（若為新系統，依此詢問使用者意向；既有系統則以現有技術棧為準）：
+- 這個功能屬於哪個系統？後端技術是？
+
+  | 選項               | 說明                                           |
+  | ------------------ | ---------------------------------------------- |
+  | `C# / .NET 8`      | iMX.Framework，企業 API 服務                   |
+  | `Python API`       | wecpy + FastAPI / Flask，须使用 wecpy 函式庫   |
+  | `Python Streamlit` | 內部工具 / PoC，前後端一體，**不需要再選前端** |
+  | `純前端`           | 無後端或 BFF，直接對接既有 API                 |
+  | `其他`             | 請說明                                         |
+
+**步驟二：前端決策（根據步驟一自動判斷）**
+
+```
+後端 = Python Streamlit
+  → 前端由 Streamlit 一體處理，直接寫入 spec，不再詢問
+
+後端 = 其他（C# / Python API / 純前端 / 其他）
+  → 預設推薦 React 作為前端框架，直接寫入 spec，不再詢問
+     （若使用者在需求描述中已明確指定 Angular/Vue/其他框架，以其指定為準）
+```
+
+> ⚠️ **注意事項**：
 >
-> | 後端技術     | 前端框架                                   | 說明                                                              |
-> | ------------ | ------------------------------------------ | ----------------------------------------------------------------- |
-> | C# / .NET    | 依系統需求選擇（Angular / React / Vue 等） | 若選擇 Angular 且使用 WEC 框架，須從 fork wec-main 開始           |
-> | Python (API) | 依系統需求選擇（Angular / React / Vue 等） | Python 專案均須使用 wecpy 函式庫（搭配 FastAPI / Flask 等）       |
-> | 純前端       | 依系統需求選擇                             | 不限框架，需符合 `standards/coding-standard-frontend.md` 基礎規範 |
-> | 內部工具/PoC | Streamlit / Gradio 等輕量方案亦可          | 僅限內部使用，對外系統建議採用正式前端框架                        |
->
-> ⚠️ **前端框架選型為自由選擇**，不強制使用 Angular。若選擇 Angular 且使用 WEC 框架（wec-main），須從 fork wec-main 開始。Python 專案均須使用 **wecpy** 函式庫（非 API 框架，需搭配 FastAPI/Flask 等）。
+> - Python 專案均須使用 **wecpy** 函式庫（非 API 框架，需搭配 FastAPI/Flask 等）
+> - 若前端選擇 Angular 且使用 WEC 框架（wec-main），須從 fork wec-main 開始
+> - 既有系統則以現有技術棧為準，不另詢問
 
 **D. 優先級與限制（視複雜度）**
 

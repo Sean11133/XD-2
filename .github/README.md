@@ -1,8 +1,8 @@
 # WEC Coding Standards — AI 軟體工廠
 
-> Version: v5.1 | Date: 2026-03-13
+> Version: v5.2 | Date: 2026-03-31 | Author: MK22 HYCHENG5
 
-此 Repository 是 **WEC AI 軟體工廠** 的核心設定倉庫，透過 **Git Submodule** 掛載至目標專案的 `.github/` 目錄後，即可為目標專案提供完整的 AI 驅動開發閉環能力。
+此 Repository 是 **WEC AI 軟體工廠** 的**起始專案模板**。公司內部人員開展新專案時，統一 **Fork 本 Repo** 作為起點——Fork 後的新 Repo 根目錄即含有完整的 `.github/` AI 驅動開發標準，無需額外安裝，即可立即獲得完整的 AI 驅動開發閉環能力。
 
 ---
 
@@ -10,7 +10,43 @@
 
 > 詳細步驟與比較見 `docs/setup-guide.md`
 
-### 方式 A：Git Submodule（推薦 — 可追蹤版本、一鍵更新）
+### 方式 A：Fork 起始專案（⭐ 首要推薦 — 開啟新專案最快路徑）
+
+Fork 本 Repo 後，Fork 出的 Repo **就是你的新專案**。根目錄內已備有完整 `.github/` 標準，無需額外安裝，即可開始開發。
+
+**Step 1：在 GitHub 上 Fork 本 Repo**
+
+前往本 Repo 頁面，點選右上角 **Fork**，選擇目標 org 或個人帳號後確認建立。
+
+**Step 2：Clone 你的新專案並開始開發**
+
+```bash
+# Clone Fork 後的新專案
+git clone https://github.com/<your-org>/<your-new-project>.git
+cd <your-new-project>
+
+# 直接開始建立你的程式碼
+mkdir src
+# ... 開始開發
+```
+
+**同步上游最新標準更新**
+
+```bash
+# 設定上游（首次執行）
+git remote add upstream https://github.com/winbond-MK00/wec-coding-standards.git
+
+# 之後每次同步上游標準
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
+> **為何首選 Fork？** Fork 讓你的新專案天生具備 WEC AI 標準，可針對專案需求自由調整 `.copilot/`，同時保留與上游標準合併同步的彈性。
+
+---
+
+### 方式 B：加入既有專案 — Git Submodule（直接使用上游）
 
 **已有 git repo（至少有一個 commit）**
 
@@ -43,7 +79,7 @@ git add .github
 git commit -m "chore: update wec-coding-standards"
 ```
 
-### 方式 B：Git Subtree（不想管理 submodule 的團隊）
+### 方式 C：加入既有專案 — Git Subtree（不想管理 submodule 的團隊）
 
 > ⚠️ `git subtree` 需要 repo 有有效的 `HEAD`（至少一個 commit），否則會報 `ambiguous argument 'HEAD'`。
 
@@ -70,7 +106,7 @@ git subtree add --prefix .github https://github.com/winbond-MK00/wec-coding-stan
 git subtree pull --prefix .github https://github.com/winbond-MK00/wec-coding-standards.git main --squash
 ```
 
-### 方式 C：手動下載（離線環境 / 快速試用）
+### 方式 D：加入既有專案 — 手動下載 ZIP（離線環境 / 快速試用）
 
 **Linux / macOS**
 
@@ -93,14 +129,15 @@ Remove-Item -Recurse -Force github-tmp
 
 ### 方式比較
 
-|                    | Submodule                 | Subtree               | 手動下載      |
-| ------------------ | ------------------------- | --------------------- | ------------- |
-| 安裝難度           | ⭐⭐                      | ⭐⭐                  | ⭐            |
-| 一鍵更新           | ✅                        | ✅                    | ❌ 需重新下載 |
-| 版本追蹤           | ✅ 精確到 commit          | ✅ squash commit      | ❌            |
-| Clone 後需額外動作 | `submodule update --init` | 無                    | 無            |
-| 可離線使用         | ❌ 需網路 init            | ✅ 已合併至 repo      | ✅            |
-| 適合情境           | 多專案統一管控            | 不熟 submodule 的團隊 | 試用 / 離線   |
+|                    | **Fork 起始專案** ⭐      | Submodule（加入既有專案） | Subtree（加入既有專案） | 手動下載 ZIP  |
+| ------------------ | ------------------------- | ------------------------- | ----------------------- | ------------- |
+| 安裝難度           | ⭐                        | ⭐⭐                      | ⭐⭐                    | ⭐            |
+| 一鍵同步上游       | ✅ 可控制時機             | ✅                        | ✅                      | ❌ 需重新下載 |
+| 版本追蹤           | ✅ 精確到 commit          | ✅ 精確到 commit          | ✅ squash commit        | ❌            |
+| 可自訂調整         | ✅ `.copilot/` 疊加       | ⚠️ 不建議修改 .github     | ⚠️ 不易同步             | ✅ 無限制     |
+| Clone 後需額外動作 | 無                        | `submodule update --init` | 無                      | 無            |
+| 可離線使用         | ✅                        | ❌ 需網路 init            | ✅ 已合併至 repo        | ✅            |
+| 適合情境           | **所有新專案 ← 優先選擇** | 既有專案補加 AI 標準      | 不熟 submodule 的團隊   | 試用 / 離線   |
 
 ---
 
@@ -114,6 +151,8 @@ Remove-Item -Recurse -Force github-tmp
 ├── instructions/                 ← 上下文感知指令（依檔案類型自動套用）
 │   ├── csharp.instructions.md    → applyTo: **/*.cs
 │   ├── angular.instructions.md   → applyTo: **/*.ts, **/*.html（Angular 專案適用）
+│   ├── angular-comp-practices.instructions.md → 元件選型、匯入路徑、樣式策略最佳實踐
+│   ├── angular-page-layouts.instructions.md   → 標準頁面版型骨架
 │   ├── python.instructions.md    → applyTo: **/*.py
 │   ├── ai-loop-protocols.instructions.md    → Inner Loop 核心協議
 │   ├── ai-loop-error-taxonomy.instructions.md → 錯誤分類與處理
@@ -127,10 +166,16 @@ Remove-Item -Recurse -Force github-tmp
 │   ├── ai-loop-integration-test.prompt.md → 整合測試 Agent
 │   └── final-report.prompt.md    → 最終報告產出
 │
+├── scripts/                      ← 快速初始化與遙測腳本
+│   ├── init.sh / init.ps1        → 一鍵環境初始化（Linux/macOS / Windows）
+│   └── push-telemetry.sh / push-telemetry.ps1 → 遙測資料推送
+│
 ├── skills/                       ← 互動式技能（外環，主動對話）
 │   ├── pm/SKILL.md               → @pm：需求分析 → spec.md
 │   ├── architect/SKILL.md        → @architect：架構設計 → plan.md
 │   ├── ai-loop/SKILL.md          → Inner Loop Skill 定義
+│   ├── aip-deploy/SKILL.md       → 產生 Dockerfile & Jenkinsfile（AIP 部署）
+│   ├── ui-ux-pro-max/SKILL.md    → UI/UX 設計智慧引擎
 │   ├── git-smart-commit/SKILL.md → 智慧拆分 Conventional Commit
 │   ├── git-pr-description/SKILL.md → 自動產生 PR Title & Description
 │   ├── git-worktree-design/SKILL.md → 多分支平行開發 Worktree 規劃
@@ -260,15 +305,17 @@ your-project/
 
 ### Skills（外環互動技能）
 
-| Skill                    | 觸發描述                          | 輸出                             |
-| ------------------------ | --------------------------------- | -------------------------------- |
-| `@pm` (pm skill)         | 描述新功能需求                    | spec.md                          |
-| `@architect` (architect) | 架構設計討論                      | plan.md（含 Mermaid 圖）         |
-| ai-loop skill            | 詢問 loop 運作方式 / 觸發方式     | 引導說明                         |
-| `git-smart-commit`       | 有雜亂的 git 變更需要整理         | 多個有意義的 Conventional Commit |
-| `git-pr-description`     | 需要建立 Pull Request             | PR Title & Description           |
-| `git-worktree-design`    | 多功能需求或需要平行開發          | Worktree 拆分方案                |
-| `skill-development`      | 需要建立或改善 Skill / Agent 定義 | SKILL.md / agent.md 草稿         |
+| Skill                    | 觸發描述                           | 輸出                             |
+| ------------------------ | ---------------------------------- | -------------------------------- |
+| `@pm` (pm skill)         | 描述新功能需求                     | spec.md                          |
+| `@architect` (architect) | 架構設計討論                       | plan.md（含 Mermaid 圖）         |
+| ai-loop skill            | 詢問 loop 運作方式 / 觸發方式      | 引導說明                         |
+| `aip-deploy`             | 產生 Dockerfile、Jenkinsfile       | 部署配置檔案（AIP 平台用）       |
+| `ui-ux-pro-max`          | 設計 UI / Landing Page / Dashboard | 頁面設計方案與元件建議           |
+| `git-smart-commit`       | 有雜亂的 git 變更需要整理          | 多個有意義的 Conventional Commit |
+| `git-pr-description`     | 需要建立 Pull Request              | PR Title & Description           |
+| `git-worktree-design`    | 多功能需求或需要平行開發           | Worktree 拆分方案                |
+| `skill-development`      | 需要建立或改善 Skill / Agent 定義  | SKILL.md / agent.md 草稿         |
 
 ### 需求工作區命名規則
 
@@ -311,15 +358,15 @@ docs/
 
 `frameworks/` 目錄是 WEC 各內部框架的 AI 知識擴展模組，讓 AI 助理了解各框架的開發規範、元件用法與常見模式，與核心 `standards/` 分層管理。
 
-| 目錄                                | 對應框架                       | 包含內容                                             |
-| ----------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| `frameworks/imxframework/`          | iMX Framework v2.0 (.NET)      | 開發規則、使用者說明、develop/init/intro Skills      |
+| 目錄                                | 對應框架                       | 包含內容                                                                    |
+| ----------------------------------- | ------------------------------ | --------------------------------------------------------------------------- |
+| `frameworks/imxframework/`          | iMX Framework v2.0 (.NET)      | 開發規則、使用者說明、develop/init/intro Skills                             |
 | `frameworks/wec-main/`              | WEC 前端框架 (Angular)         | wec-core / wec-components / wecui 指令 + 8 個 Skills（選用 Angular 時適用） |
-| `frameworks/wec-py/`                | WEC Python 服務                | wecpy / ieda / ifdc 資料存取指令                     |
-| `frameworks/webapi-framework/`      | CIMWebApiFramework (.NET 4.8)  | Oracle/Security/Alarm/APM 整合規範、AGENTS、Skills   |
-| `frameworks/webapi-framework-core/` | CIMWebApiFrameworkCore ⚠️ 棄用 | 維護期規範 + 遷移至 iMX.Framework v2.0 指引          |
-| `frameworks/imx-core-net/`          | iMX.Core.Net v1.x              | Manager-Based 規範（Kafka/ES/S3/APM），含多 TFM 指引 |
-| `frameworks/shared/`                | 跨框架共用知識                 | ieda / ifdc 資料介接層共用規範                       |
+| `frameworks/wec-py/`                | WEC Python 服務                | wecpy / ieda / ifdc 資料存取指令                                            |
+| `frameworks/webapi-framework/`      | CIMWebApiFramework (.NET 4.8)  | Oracle/Security/Alarm/APM 整合規範、AGENTS、Skills                          |
+| `frameworks/webapi-framework-core/` | CIMWebApiFrameworkCore ⚠️ 棄用 | 維護期規範 + 遷移至 iMX.Framework v2.0 指引                                 |
+| `frameworks/imx-core-net/`          | iMX.Core.Net v1.x              | Manager-Based 規範（Kafka/ES/S3/APM），含多 TFM 指引                        |
+| `frameworks/shared/`                | 跨框架共用知識                 | ieda / ifdc 資料介接層共用規範                                              |
 
 > 各框架目錄可獨立維護（`.copilot/` 模式），不影響核心標準。詳見各目錄下的 `AGENTS.md`。
 
@@ -333,13 +380,16 @@ docs/
 ### 版本更新
 
 ```bash
-# Submodule 方式
+# Fork 起始專案方式（主要使用情境）
+# 首次設定上游
+git remote add upstream https://github.com/winbond-MK00/wec-coding-standards.git
+# 之後每次同步上游最新標準
+git fetch upstream && git merge upstream/main && git push origin main
+
+# 既有專案 — Submodule 方式
 git submodule update --remote --merge
 git add .github && git commit -m "chore: update wec-coding-standards"
 
-# Subtree 方式
+# 既有專案 — Subtree 方式
 git subtree pull --prefix .github https://github.com/winbond-MK00/wec-coding-standards.git main --squash
-
-# Init Script 方式（重新執行即可）
-curl -fsSL https://raw.githubusercontent.com/winbond-MK00/wec-coding-standards/main/scripts/init.sh | bash
 ```

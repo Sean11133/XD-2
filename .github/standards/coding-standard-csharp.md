@@ -17,6 +17,7 @@
 8. [錯誤處理](#8-錯誤處理)
 9. [xUnit 測試規範](#9-xunit-測試規範)
 10. [日誌規範](#10-日誌規範)
+11. [敏感資料與設定管理（強制）](#11-敏感資料與設定管理強制)
 
 ---
 
@@ -24,22 +25,22 @@
 
 ### 1.1 通則
 
-| 類型 | 命名風格 | 範例 |
-|------|----------|------|
-| 類別（Class） | PascalCase | `OrderService` |
-| 介面（Interface） | I + PascalCase | `IOrderRepository` |
-| 方法（Method） | PascalCase | `GetOrderById` |
-| 非同步方法 | PascalCase + Async | `GetOrderByIdAsync` |
-| 屬性（Property） | PascalCase | `OrderDate` |
-| public 欄位 | PascalCase | `MaxRetryCount` |
-| private 欄位 | _camelCase | `_orderRepository` |
-| 參數（Parameter） | camelCase | `orderId` |
-| 區域變數 | camelCase | `totalAmount` |
-| 常數（const） | PascalCase | `DefaultPageSize` |
-| 列舉（Enum） | PascalCase（單數） | `OrderStatus` |
-| 列舉值 | PascalCase | `OrderStatus.Pending` |
-| 泛型型別參數 | T + PascalCase | `TEntity`, `TResult` |
-| Namespace | PascalCase | `Company.Project.Orders` |
+| 類型              | 命名風格           | 範例                     |
+| ----------------- | ------------------ | ------------------------ |
+| 類別（Class）     | PascalCase         | `OrderService`           |
+| 介面（Interface） | I + PascalCase     | `IOrderRepository`       |
+| 方法（Method）    | PascalCase         | `GetOrderById`           |
+| 非同步方法        | PascalCase + Async | `GetOrderByIdAsync`      |
+| 屬性（Property）  | PascalCase         | `OrderDate`              |
+| public 欄位       | PascalCase         | `MaxRetryCount`          |
+| private 欄位      | \_camelCase        | `_orderRepository`       |
+| 參數（Parameter） | camelCase          | `orderId`                |
+| 區域變數          | camelCase          | `totalAmount`            |
+| 常數（const）     | PascalCase         | `DefaultPageSize`        |
+| 列舉（Enum）      | PascalCase（單數） | `OrderStatus`            |
+| 列舉值            | PascalCase         | `OrderStatus.Pending`    |
+| 泛型型別參數      | T + PascalCase     | `TEntity`, `TResult`     |
+| Namespace         | PascalCase         | `Company.Project.Orders` |
 
 ### 1.2 命名原則
 
@@ -288,11 +289,11 @@ public async Task<IActionResult> GetOrders(
 
 ### 4.3 ValueTask vs Task
 
-| 情境 | 使用型別 |
-|------|----------|
-| 大多數情況 | `Task<T>` |
-| 方法經常同步完成（如快取命中） | `ValueTask<T>` |
-| 介面定義（公開 API） | `Task<T>`（較安全） |
+| 情境                           | 使用型別            |
+| ------------------------------ | ------------------- |
+| 大多數情況                     | `Task<T>`           |
+| 方法經常同步完成（如快取命中） | `ValueTask<T>`      |
+| 介面定義（公開 API）           | `Task<T>`（較安全） |
 
 ```csharp
 // ✅ ValueTask 適用場景：快取命中時同步返回
@@ -338,11 +339,11 @@ var order = await _orderService.GetOrderByIdAsync(orderId, cancellationToken);
 
 ### 5.2 生命週期選擇
 
-| 生命週期 | 說明 | 適用情境 |
-|----------|------|----------|
-| **Transient** | 每次注入建立新實例 | 輕量、無狀態的服務 |
-| **Scoped** | 每個 HTTP Request 一個實例 | DbContext、UnitOfWork、含 request 狀態的服務 |
-| **Singleton** | 應用程式生命週期唯一實例 | 快取、設定、HttpClient Factory |
+| 生命週期      | 說明                       | 適用情境                                     |
+| ------------- | -------------------------- | -------------------------------------------- |
+| **Transient** | 每次注入建立新實例         | 輕量、無狀態的服務                           |
+| **Scoped**    | 每個 HTTP Request 一個實例 | DbContext、UnitOfWork、含 request 狀態的服務 |
+| **Singleton** | 應用程式生命週期唯一實例   | 快取、設定、HttpClient Factory               |
 
 > ⚠️ **重要**：Singleton 服務不可注入 Scoped 服務（會造成 Captive Dependency 問題）。
 
@@ -405,6 +406,60 @@ public class BadService(IServiceProvider serviceProvider)
 ---
 
 ## 6. Entity Framework Core 規範
+
+### 6.0 本機開發資料庫建議：SQLite 優先
+
+> ✅ **開發階段預設使用 SQLite**，無需安裝外部資料庫服務，快速啟動、零設定。
+
+EF Core 的 Repository / Service 層以 `DbContext` 為抽象，**切換資料庫只需替換連線字串與 provider**，業務邏輯無需修改。
+
+#### 開發环境設定（`appsettings.Development.json`）
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=dev.db"
+  }
+}
+```
+
+#### 注冊方式（`Program.cs`）
+
+```csharp
+var isDevelopment = builder.Environment.IsDevelopment();
+
+if (isDevelopment)
+{
+    // 開發：SQLite
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
+else
+{
+    // Staging / Production：切換為目標 DB（SQL Server / PostgreSQL 等）
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
+```
+
+#### 安裝套件
+
+```bash
+dotnet add package Microsoft.EntityFrameworkCore.Sqlite
+```
+
+#### 環境切換對照表
+
+| 環境                    | Provider              | 連線字串範例                                       |
+| ----------------------- | --------------------- | -------------------------------------------------- |
+| 本機開發（Development） | SQLite                | `Data Source=dev.db`                               |
+| CI / 整合測試           | SQLite（In-Memory）   | `Data Source=:memory:`                             |
+| Staging / UAT           | 目標 DB（SQL Server） | `Server=...;Database=...;User Id=...;Password=...` |
+| Production              | 目標 DB               | 由 CI/CD 注入，不寫入程式碼                        |
+
+> ⚠️ `dev.db` 檔案必須加入 `.gitignore`，不可提交版本控制。
+
+---
 
 ### 6.1 DbContext 設定
 
@@ -539,14 +594,14 @@ public class Repository<T>(AppDbContext dbContext) : IRepository<T> where T : cl
 
 ### 7.1 RESTful 命名慣例
 
-| HTTP Method | 路由範例 | 用途 |
-|-------------|----------|------|
-| GET | `/api/v1/orders` | 取得訂單列表 |
-| GET | `/api/v1/orders/{id}` | 取得單一訂單 |
-| POST | `/api/v1/orders` | 建立訂單 |
-| PUT | `/api/v1/orders/{id}` | 完整更新訂單 |
-| PATCH | `/api/v1/orders/{id}` | 部分更新訂單 |
-| DELETE | `/api/v1/orders/{id}` | 刪除訂單 |
+| HTTP Method | 路由範例              | 用途         |
+| ----------- | --------------------- | ------------ |
+| GET         | `/api/v1/orders`      | 取得訂單列表 |
+| GET         | `/api/v1/orders/{id}` | 取得單一訂單 |
+| POST        | `/api/v1/orders`      | 建立訂單     |
+| PUT         | `/api/v1/orders/{id}` | 完整更新訂單 |
+| PATCH       | `/api/v1/orders/{id}` | 部分更新訂單 |
+| DELETE      | `/api/v1/orders/{id}` | 刪除訂單     |
 
 **命名原則**：
 
@@ -952,14 +1007,14 @@ logger.LogInformation("訂單 " + order.Id + " 建立成功");
 
 ### 10.3 日誌等級使用指引
 
-| 等級 | 使用情境 | 範例 |
-|------|----------|------|
-| **Trace** | 極細粒度的除錯資訊，通常只在開發環境啟用 | 方法進入/離開、變數值 |
-| **Debug** | 開發除錯用的詳細資訊 | SQL 查詢內容、快取命中/未命中 |
-| **Information** | 正常業務流程的關鍵節點 | 訂單建立成功、使用者登入 |
-| **Warning** | 非預期但可自動恢復的情況 | 重試機制觸發、快取過期、庫存偏低 |
-| **Error** | 操作失敗，需要關注但服務仍可運行 | API 呼叫失敗、資料庫查詢逾時 |
-| **Critical** | 系統嚴重錯誤，服務可能無法運行 | 資料庫連線中斷、設定檔缺失 |
+| 等級            | 使用情境                                 | 範例                             |
+| --------------- | ---------------------------------------- | -------------------------------- |
+| **Trace**       | 極細粒度的除錯資訊，通常只在開發環境啟用 | 方法進入/離開、變數值            |
+| **Debug**       | 開發除錯用的詳細資訊                     | SQL 查詢內容、快取命中/未命中    |
+| **Information** | 正常業務流程的關鍵節點                   | 訂單建立成功、使用者登入         |
+| **Warning**     | 非預期但可自動恢復的情況                 | 重試機制觸發、快取過期、庫存偏低 |
+| **Error**       | 操作失敗，需要關注但服務仍可運行         | API 呼叫失敗、資料庫查詢逾時     |
+| **Critical**    | 系統嚴重錯誤，服務可能無法運行           | 資料庫連線中斷、設定檔缺失       |
 
 ### 10.4 避免記錄敏感資訊
 
@@ -1004,6 +1059,204 @@ builder.Host.UseSerilog((context, loggerConfiguration) =>
         }
     }
 }
+```
+
+---
+
+## 11. 敏感資料與設定管理（強制）
+
+> ⛔ **本節所有規定為強制性規範，違反者須在 Code Review 中強制修正後方可合併。**
+
+### 11.1 敏感資料定義
+
+下列資料一律視為敏感資料，**嚴禁以任何形式寫入程式碼或 `appsettings.json` / `appsettings.*.json`**：
+
+| 類型                     | 範例                                        |
+| ------------------------ | ------------------------------------------- |
+| 資料庫連線字串（含密碼） | `Server=...;Password=...`                   |
+| API 金鑰 / Secret        | `ApiKey`, `ClientSecret`, `SubscriptionKey` |
+| JWT Secret               | `JwtSettings:Secret`                        |
+| 第三方服務憑證           | AWS AccessKey, Azure Storage Key, SMTP 密碼 |
+| 加密金鑰 / 初始向量      | `EncryptionKey`, `IV`                       |
+| 任何密碼類欄位           | `Password`, `Token`, `PrivateKey`           |
+
+### 11.2 強制使用環境變數存取敏感設定
+
+所有敏感資料 **必須** 透過環境變數注入，並使用 `IConfiguration` 讀取。禁止直接讀取 `Environment.GetEnvironmentVariable()`，統一走 .NET 的 Configuration 管道。
+
+```csharp
+// ✅ 正確：透過 IConfiguration 讀取（由環境變數注入）
+public class JwtService(IConfiguration configuration) : IJwtService
+{
+    // 環境變數名稱：JwtSettings__Secret（雙底線代表巢狀層級）
+    private readonly string _secret = configuration["JwtSettings:Secret"]
+        ?? throw new InvalidOperationException("JWT Secret 未設定，請確認環境變數 JwtSettings__Secret");
+}
+
+// ✅ 正確：使用 Options Pattern 並確保值存在
+public class JwtSettings
+{
+    public required string Secret { get; init; }
+    public required string Issuer { get; init; }
+    public int ExpiryMinutes { get; init; } = 60;
+}
+
+// Program.cs
+builder.Services.AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection("JwtSettings"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart(); // 啟動時即驗證，而非等到第一次使用
+
+// ❌ 嚴禁：寫死在程式碼中
+private const string JwtSecret = "my-super-secret-key-123"; // 絕對禁止！
+
+// ❌ 嚴禁：直接讀取環境變數（繞過 Configuration 管道）
+var secret = Environment.GetEnvironmentVariable("JWT_SECRET"); // 禁止！
+```
+
+### 11.3 appsettings.json 禁止寫入敏感值
+
+```jsonc
+// ✅ 正確：appsettings.json 只放結構，敏感值留空或放佔位符
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "" // 實際值由環境變數覆蓋
+  },
+  "JwtSettings": {
+    "Issuer": "my-app",
+    "ExpiryMinutes": 60,
+    "Secret": ""           // 實際值由環境變數覆蓋
+  },
+  "ExternalApi": {
+    "BaseUrl": "https://api.example.com",
+    "ApiKey": ""           // 實際值由環境變數覆蓋
+  }
+}
+
+// ❌ 嚴禁：appsettings.json 或 appsettings.Production.json 含真實敏感值
+{
+  "JwtSettings": {
+    "Secret": "P@ssw0rd!Super$ecret"  // 絕對禁止！
+  }
+}
+```
+
+> ⚠️ `appsettings.Development.json` 中只允許本機開發用的 SQLite 路徑（非密碼），**不得**存放任何密碼、金鑰或 Token。
+
+### 11.4 開發環境：使用 dotnet user-secrets
+
+本機開發時，使用 `dotnet user-secrets` 儲存敏感設定，資料存於作業系統使用者目錄，**不進入版本控制**。
+
+```bash
+# 初始化 user-secrets（專案目錄下執行一次）
+dotnet user-secrets init
+
+# 設定敏感值
+dotnet user-secrets set "JwtSettings:Secret" "local-dev-secret"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Database=dev;User=sa;Password=localP@ss"
+dotnet user-secrets set "ExternalApi:ApiKey" "dev-api-key-xyz"
+
+# 查看目前設定（不顯示值）
+dotnet user-secrets list
+```
+
+```csharp
+// Program.cs — Development 環境自動載入 user-secrets（.NET 預設行為，無需額外設定）
+// builder.Configuration 的優先順序（由低到高）：
+// appsettings.json → appsettings.{Environment}.json → 環境變數 → user-secrets (Development)
+```
+
+### 11.5 正式環境：環境變數命名規則
+
+.NET Configuration 以 `__`（雙底線）作為巢狀層級分隔符：
+
+| appsettings.json 路徑                 | 環境變數名稱                           |
+| ------------------------------------- | -------------------------------------- |
+| `ConnectionStrings:DefaultConnection` | `ConnectionStrings__DefaultConnection` |
+| `JwtSettings:Secret`                  | `JwtSettings__Secret`                  |
+| `ExternalApi:ApiKey`                  | `ExternalApi__ApiKey`                  |
+| `Smtp:Password`                       | `Smtp__Password`                       |
+
+```bash
+# Docker / docker-compose 範例
+environment:
+  - JwtSettings__Secret=${JWT_SECRET}
+  - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+  - ExternalApi__ApiKey=${EXTERNAL_API_KEY}
+
+# Kubernetes Secret 範例（掛載為環境變數）
+env:
+  - name: JwtSettings__Secret
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: jwt-secret
+```
+
+> ⚠️ **CI/CD 管道**：所有環境變數值必須儲存於 CI/CD Secret Store（如 GitHub Actions Secrets、Azure Key Vault、Vault by HashiCorp），透過 pipeline 注入，**不得以明文寫入 pipeline 定義檔**。
+
+### 11.6 啟動時驗證：確保必要設定存在
+
+```csharp
+// ✅ 使用 ValidateOnStart 確保缺少環境變數時應用程式無法啟動
+public class JwtSettings
+{
+    [Required(ErrorMessage = "JwtSettings:Secret 為必填，請設定環境變數 JwtSettings__Secret")]
+    [MinLength(32, ErrorMessage = "JWT Secret 長度不得少於 32 字元")]
+    public required string Secret { get; init; }
+
+    [Required]
+    public required string Issuer { get; init; }
+}
+
+builder.Services.AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection("JwtSettings"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart(); // 缺少設定時應用程式啟動即失敗，而非執行期才爆錯
+```
+
+### 11.7 .gitignore 必要項目
+
+確保以下項目已加入 `.gitignore`，否則 PR 不得合併：
+
+```gitignore
+# 本機開發資料庫
+*.db
+*.db-shm
+*.db-wal
+
+# .NET user-secrets 不會在版本控制中，但防止意外提交
+**/secrets.json
+
+# 環境變數設定檔
+.env
+.env.*
+!.env.example
+
+# 憑證與金鑰檔案
+*.pfx
+*.pem
+*.key
+*.p12
+```
+
+### 11.8 禁止事項總覽
+
+```csharp
+// ❌ 硬寫在程式碼
+private const string ConnectionString = "Server=prod.db;Password=abc123";
+
+// ❌ 寫入任何 appsettings*.json
+// { "JwtSettings": { "Secret": "real-secret" } }
+
+// ❌ 直接讀取環境變數（繞過 Configuration 管道）
+Environment.GetEnvironmentVariable("SECRET");
+
+// ❌ 提交 .env 檔案至版本控制
+// .env 內含: JWT_SECRET=abc123
+
+// ❌ 在日誌中輸出敏感值（重申 10.4 規範）
+logger.LogInformation("使用金鑰：{Secret}", jwtSettings.Secret);
 ```
 
 ---

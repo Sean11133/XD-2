@@ -1,0 +1,44 @@
+# wecpy Data Fetcher config.yaml 範本
+# 注意：Data Fetcher 連線由 wecpy 框架自動管理，通常不需要額外設定
+
+General:
+  system: "{IMX_SYSTEM}"
+  app: "{IMX_APP}"
+  app_type: Schedule
+  section: MK10
+
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10MB
+      backupCount: 10
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+  root:
+    handlers: [console]
+    level: INFO
+
+# 如果需要整合資料庫，可加入以下設定
+Database:
+  TRAINDB:
+    type: oracle
+    host: 10.18.20.35
+    port: 1531
+    username: "{IMX_TRAINDB_ID}"
+    password: "{IMX_TRAINDB_PWD}"
+    service: TRAINDB
+
+# 如果需要 APM 監控
+Apm:
+  apmserver:
+    enabled: true
+    server_url: http://ctpilotapm:8200

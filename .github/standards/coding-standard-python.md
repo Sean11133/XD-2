@@ -742,6 +742,40 @@ st.selectbox(
 
 ## 6. 資料庫存取規範
 
+### 6.0 本機開發資料庫建議：SQLite 優先
+
+> ✅ **開發階段預設使用 SQLite**，無需安裝外部資料庫服務，快速啟動、零設定。
+
+SQLAlchemy 以 `create_engine()` 為抽象入口，**切換資料庫只需替換連線字串**，ORM Model 與 Repository 無需修改。
+
+#### 開發環境設定（`config.py` 或 `.env`）
+
+```python
+import os
+
+# 開發預設：SQLite 本機檔案
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+```
+
+#### 環境切換對照表
+
+| 環境                    | 連線字串範例                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| 本機開發（Development） | `sqlite:///./dev.db`                                                |
+| CI / 整合測試           | `sqlite:///:memory:`（每次測試獨立，無殘留狀態）                    |
+| Staging / UAT           | `postgresql://user:pass@host:5432/db` 或 `mssql+pyodbc://...`      |
+| Production              | 由環境變數 `DATABASE_URL` 注入，不寫入程式碼                        |
+
+#### SQLite 注意事項
+
+- `dev.db` 必須加入 `.gitignore`，不可提交版本控制
+- SQLite 不支援部分 PostgreSQL / SQL Server 的進階語法（如 `array`、`json` 欄位）；若使用這類功能，CI 應改用目標 DB 做整合測試
+- Alembic migration 在 SQLite 上可能有限制（不支援 `ALTER COLUMN`），若遇到，可採 `batch_alter_table` 或在 CI 以目標 DB 執行 migration 驗證
+
+> ✅ **安裝**：SQLite 為 Python 標準函式庫內建，無需額外安裝套件。
+
+---
+
 ### 6.1 SQLAlchemy ORM 使用規範
 
 使用 SQLAlchemy 2.0 風格（Mapped / mapped_column）：

@@ -2,121 +2,22 @@
 applyTo: "**/*.py"
 ---
 
-# Python 3.10+ 編碼標準摘要
+# Python 3.10+ 編碼標準（快速參考）
 
-> 完整標準：`standards/coding-standard-python.md`
+> 📌 **完整標準**：`standards/coding-standard-python.md`（命名慣例、型別提示、Docstring、Domain 層、Result Pattern、日誌等全部規範）
+>
+> 本檔僅列出**自動載入時的提醒重點**，詳細規範與範例請查閱完整標準文件。
 
-## 命名慣例
+## 關鍵提醒
 
-| 對象              | 規範               | 範例                             |
-| ----------------- | ------------------ | -------------------------------- |
-| 模組、函式、變數  | `snake_case`       | `user_service.py`, `get_user()`  |
-| 類別              | `PascalCase`       | `OrderService`, `UserRepository` |
-| 常數              | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT`                |
-| 私有成員          | `_snake_case`      | `_db_session`                    |
-| Abstract/Protocol | `PascalCase`       | `IOrderRepository`               |
-
-## 型別提示（強制要求）
-
-```python
-# ✅ 所有公開函式必須有型別提示（Python 3.10+ union syntax）
-def get_user(user_id: int) -> User | None:
-    ...
-
-# ✅ 泛型
-def batch_process(items: list[Order], *, dry_run: bool = False) -> list[Result]:
-    ...
-
-# ✅ TypeAlias（複雜型別）
-type UserId = int
-type OrderItems = list[OrderItem]
-```
-
-## Docstring 規範（Google Style，強制）
-
-```python
-def process_order(order: Order, *, notify: bool = True) -> Result[Order, str]:
-    """訂單處理服務的核心業務邏輯。
-
-    Args:
-        order: 待處理的訂單 Aggregate Root。
-        notify: 是否發送通知郵件，預設為 True。
-
-    Returns:
-        成功時回傳 Ok(order)，驗證失敗時回傳 Err(訊息)。
-
-    Raises:
-        InfrastructureError: 資料庫連線失敗時。
-    """
-```
-
-## Domain 層規範（Clean Architecture）
-
-```python
-# ✅ Domain Entity — 使用 dataclass，無任何框架引用
-from dataclasses import dataclass, field
-from uuid import UUID
-
-@dataclass
-class Order:
-    id: UUID
-    customer_id: UUID
-    items: list[OrderItem] = field(default_factory=list)
-    status: OrderStatus = OrderStatus.PENDING
-
-    def add_item(self, item: OrderItem) -> None:
-        if item.quantity <= 0:
-            raise DomainError("Quantity must be positive")
-        self.items.append(item)
-
-# ✅ Value Object — frozen dataclass（不可變）
-@dataclass(frozen=True)
-class Money:
-    amount: Decimal
-    currency: str
-
-    def __post_init__(self) -> None:
-        if self.amount < 0:
-            raise DomainError("Amount cannot be negative")
-
-# ❌ 禁止：Domain 層 import SQLAlchemy / Streamlit / FastAPI
-```
-
-## Result Pattern（錯誤處理）
-
-```python
-# ✅ 預期失敗（驗證、找不到）用 Result，非 Exception
-from result import Ok, Err, Result
-
-def get_order(order_id: UUID) -> Result[Order, str]:
-    order = self._repo.find_by_id(order_id)
-    if order is None:
-        return Err(f"Order {order_id} not found")
-    return Ok(order)
-
-# ✅ 非預期失敗（I/O、基礎設施）用 Exception
-class InfrastructureError(AppError): ...
-
-# ❌ 禁止 bare except
-try:
-    ...
-except Exception:  # ❌
-    pass
-```
-
-## 日誌規範（禁止 print）
-
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-
-# ✅ 結構化日誌
-logger.info("Order processed", extra={"order_id": str(order.id), "amount": float(total)})
-
-# ❌ 禁止
-print(f"Order {order_id} processed")  # 禁止
-```
+- **型別提示**：所有公開函式必須有型別提示（Python 3.10+ `X | Y` syntax）
+- **Docstring**：Google Style，強制於所有公開 API
+- **Domain 層**：禁止 import 任何框架（SQLAlchemy / Streamlit / FastAPI）
+- **錯誤處理**：預期失敗用 `Result`（`from result import Ok, Err`），非預期用 Exception
+- **日誌**：禁止 `print()`，使用 `logging.getLogger(__name__)` + 結構化 extra
+- **命名**：模組/函式/變數 `snake_case`、類別 `PascalCase`、常數 `UPPER_SNAKE_CASE`
+- **測試**：pytest，命名 `test_{行為}_{情境}_{預期}`，最低覆蓋率 80%
+- **程式碼品質**：ruff（lint + format）、mypy（型別檢查）、bandit（安全掃描）
 
 ## pytest 測試規範
 

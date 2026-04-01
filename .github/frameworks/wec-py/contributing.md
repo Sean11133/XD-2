@@ -94,13 +94,16 @@ pip install \
 
 ## 文件索引
 
-- 框架指令: `.github/instructions/wecpy.instructions.md`
-- 核心模組: `.github/skills/wecpy-core/SKILL.md`
-- 資料整合: `.github/skills/wecpy-data-integration/SKILL.md`
-- 訊息與事件: `.github/skills/wecpy-messaging/SKILL.md`
-- 基礎設施: `.github/skills/wecpy-infrastructure/SKILL.md`
-- 資料擷取: `.github/skills/wecpy-data-fetcher/SKILL.md`
-- 測試模式: `.github/skills/wecpy-testing/SKILL.md`
+- 框架指令: `.github/frameworks/wec-py/instructions/wecpy.instructions.md`
+- 核心模組: `.github/frameworks/wec-py/skills/wecpy-core/SKILL.md`
+- 資料庫操作: `.github/frameworks/wec-py/skills/wecpy-database/SKILL.md`
+- gRPC 低階資料擷取: `.github/frameworks/wec-py/skills/wecpy-datafetcher/SKILL.md`
+- FDC 高階擷取: `.github/frameworks/wec-py/skills/wecpy-fdc/SKILL.md`
+- 檔案與通訊: `.github/frameworks/wec-py/skills/wecpy-io/SKILL.md`
+- Kafka / 訊息佇列: `.github/frameworks/wec-py/skills/wecpy-kafka/SKILL.md`
+- 監控與可觀察性: `.github/frameworks/wec-py/skills/wecpy-monitoring/SKILL.md`
+- 專案重構遷移: `.github/frameworks/wec-py/skills/wecpy-refactor/SKILL.md`
+- init 結構自動修復: `.github/frameworks/wec-py/skills/wecpy-fix-init/SKILL.md`
 
 ---
 

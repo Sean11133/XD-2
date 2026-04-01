@@ -1,0 +1,194 @@
+# =============================================================================
+# wecpy 基礎組態檔案模板
+# 
+# 說明：
+#   - 此為最小必要設定，包含 General 和 Log 區塊
+#   - 依需求可加入 Database, Kafka, Apm, COP 等區塊
+#   - {變數名} 會自動替換為對應的環境變數
+#
+# 使用方式：
+#   1. 複製此檔案到 PILOT/config.yaml 和 PROD/config.yaml
+#   2. 依環境調整 Log.root.level（PILOT 用 DEBUG，PROD 用 INFO）
+#   3. 依需求加入其他區塊
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General 區塊 - 必要
+# -----------------------------------------------------------------------------
+General:
+  system: "{IMX_SYSTEM}"           # 系統代碼，例如：IRS, IANALYSIS
+  app: "{IMX_APP}"                 # 應用程式代碼，例如：MODEL_MONITOR
+  app_type: Schedule               # 應用類型：Schedule | Listener | Web
+  section: MK10                    # 部門代碼
+
+# -----------------------------------------------------------------------------
+# Log 區塊 - 必要
+# -----------------------------------------------------------------------------
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000           # 10MB
+      backupCount: 5               # 保留 5 個備份檔
+  root:
+    handlers: [console, file]
+    level: INFO                    # PILOT 建議用 DEBUG，PROD 用 INFO
+
+# =============================================================================
+# 以下區塊依需求加入，取消註解並填入正確設定
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Database 區塊 - 需要資料庫操作時加入
+# 參考：wecpy-database skill
+# -----------------------------------------------------------------------------
+# Database:
+#   # Oracle 資料庫
+#   TRAINDB:
+#     type: oracle
+#     host: 10.18.20.35
+#     port: 1531
+#     username: "{IMX_TRAINDB_ID}"
+#     password: "{IMX_TRAINDB_PWD}"
+#     service: TRAINDB
+#
+#   # Trino 資料庫
+#   edwml2:
+#     type: trino
+#     host: edwml2
+#     port: 18081
+#     catalog: udpdb
+#     username: "{IMX_EDWML2_ID}"
+#     password: "{IMX_EDWML2_PWD}"
+#
+#   # SQL Server 資料庫
+#   report:
+#     type: sqlserver
+#     host: 10.18.20.197
+#     port: 1435
+#     username: "{IMX_ID}"
+#     password: "{IMX_PWD}"
+#     service: iMX_Report
+
+# -----------------------------------------------------------------------------
+# Kafka 區塊 - 需要 Kafka Listener 時加入
+# 參考：wecpy-kafka skill
+# -----------------------------------------------------------------------------
+# Kafka:
+#   eda:
+#     topic: 'YOUR-KAFKA-TOPIC'
+#     group.id: 'YOUR-GROUP-ID'
+#     bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+#     session.timeout.ms: 60000
+
+# -----------------------------------------------------------------------------
+# WecApp 區塊 - 需要 WecTransport 或 WecApplication 時加入
+# 參考：wecpy-kafka skill
+# -----------------------------------------------------------------------------
+# WecApp:
+#   transport:
+#     message_type: Kafka
+#     topic: 'YOUR-KAFKA-TOPIC'
+#     bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+#     retries: 0
+#     linger.ms: 1
+#     message.max.bytes: 1000012
+#     inbox.port.range: 50000-50100
+#   app:
+#     message_type: Kafka
+#     thread_count: 10
+#     always_reply: True
+#     site: CTPILOT1
+#     topic: 'YOUR-KAFKA-TOPIC'
+#     group.id: 'YOUR-GROUP-ID'
+#     bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+#     session.timeout.ms: 60000
+#     inbox.port.range: 10000-10200
+
+# -----------------------------------------------------------------------------
+# Apm 區塊 - 需要 APM 效能監控時加入
+# 參考：wecpy-monitoring skill
+# -----------------------------------------------------------------------------
+# Apm:
+#   apmserver:
+#     enabled: true
+#     server_url: http://ctpilotapm:8200
+
+# -----------------------------------------------------------------------------
+# COP 區塊 - 需要 COP 指標上報時加入
+# 參考：wecpy-monitoring skill
+# -----------------------------------------------------------------------------
+# COP:
+#   COPServer:
+#     host: "http://fppushgateway"
+
+# -----------------------------------------------------------------------------
+# Elasticsearch 區塊 - 需要 ES 搜尋時加入
+# 參考：wecpy-monitoring skill
+# -----------------------------------------------------------------------------
+# Elasticsearch:
+#   ElasticsearchServer:
+#     hosts: http://es1:9200,http://es2:9200,http://es3:9200
+
+# -----------------------------------------------------------------------------
+# FTP 區塊 - 需要 FTP/SFTP 檔案傳輸時加入
+# 參考：wecpy-io skill
+# -----------------------------------------------------------------------------
+# FTP:
+#   sys_sch_ftp:
+#     type: ftp
+#     host: 10.18.30.164
+#     port: 21
+#     username: "{ftp_username}"
+#     password: "{ftp_password}"
+#   sys_sch_sftp:
+#     type: sftp
+#     host: 10.18.30.164
+#     port: 22
+#     username: "{ftp_username}"
+#     password: "{ftp_password}"
+
+# -----------------------------------------------------------------------------
+# ObjectStorage 區塊 - 需要 S3 物件儲存時加入
+# 參考：wecpy-io skill
+# -----------------------------------------------------------------------------
+# ObjectStorage:
+#   ObjectStorageServer:
+#     endpoint_url: http://pilotcims3:10444
+#     security_id: YOUR_ACCESS_KEY
+#     security_key: YOUR_SECRET_KEY
+
+# -----------------------------------------------------------------------------
+# Notification 區塊 - 需要通知服務時加入
+# 參考：wecpy-io skill
+# -----------------------------------------------------------------------------
+# Notification:
+#   pilot:
+#     enabled: true
+#     server_url: http://10.18.20.42:8032
+
+# -----------------------------------------------------------------------------
+# APIClient 區塊 - 需要呼叫外部 API 時加入
+# 參考：wecpy-io skill
+# -----------------------------------------------------------------------------
+# APIClient:
+#   imxportal:
+#     base_url: "http://10.18.20.56:8050"
+#     timeout: 10
+#     retry: 3
+#     wec_pat: "{wec_pat}"
+#   ctifdc:
+#     base_url: "http://ctifdc"
+#     timeout: 10
+#     retry: 3

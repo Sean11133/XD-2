@@ -1,0 +1,171 @@
+# =============================================================================
+# wecpy 監控設定模板
+#
+# 說明：
+#   - 本檔案包含 APM、COP、Elasticsearch 的完整設定範例
+#   - 複製需要的區塊到您的 config.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 基礎設定（必要）
+# -----------------------------------------------------------------------------
+General:
+  system: "{IMX_SYSTEM}"
+  app: "{IMX_APP}"
+  app_type: Schedule
+  section: MK10
+
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000
+      backupCount: 5
+  root:
+    handlers: [console, file]
+    level: INFO
+
+# =============================================================================
+# APM 設定 - APMManager 使用
+# =============================================================================
+# 用途：
+#   - 效能追蹤（Transaction、Span）
+#   - 分散式追蹤
+#   - 例外捕獲
+#
+# 使用方式：
+#   from wecpy.apm_manager.apm_manager import APMManager
+#   apm = APMManager()
+#   with apm.capture("operation_name"):
+#       # 業務邏輯
+# =============================================================================
+Apm:
+  apmserver:
+    enabled: true                    # 是否啟用 APM
+    server_url: http://ctpilotapm:8200  # APM Server 位址
+
+# =============================================================================
+# COP 設定 - COPManager 使用
+# =============================================================================
+# 用途：
+#   - 指標收集（Counter, Gauge, Histogram, Summary）
+#   - 上報到 Prometheus Pushgateway
+#
+# 使用方式：
+#   from wecpy.cop_manager.cop_manager import COPManager
+#   cop = COPManager()
+#   cop.counter("metric_name", 1, labels={"key": "value"})
+#   cop.gauge("queue_size", 100)
+#   cop.histogram("duration_seconds", 0.5)
+# =============================================================================
+COP:
+  COPServer:
+    host: "http://fppushgateway"     # Pushgateway 位址
+
+# =============================================================================
+# Elasticsearch 設定 - ElasticsearchManager 使用
+# =============================================================================
+# 用途：
+#   - 日誌搜尋
+#   - 資料分析
+#   - 聚合查詢
+#
+# 使用方式：
+#   from wecpy.es_manager.es_manager import ElasticsearchManager
+#   es = ElasticsearchManager("ElasticsearchServer")
+#   results = es.search(index="logs-*", query={"match": {"level": "ERROR"}})
+# =============================================================================
+Elasticsearch:
+  ElasticsearchServer:
+    hosts: http://es1:9200,http://es2:9200,http://es3:9200  # ES 節點清單
+
+# =============================================================================
+# 環境差異設定
+# =============================================================================
+#
+# PILOT 環境：
+# Apm:
+#   apmserver:
+#     enabled: true
+#     server_url: http://ctpilotapm:8200
+# COP:
+#   COPServer:
+#     host: "http://fppushgateway"
+# Elasticsearch:
+#   ElasticsearchServer:
+#     hosts: http://pilotes1:9200,http://pilotes2:9200
+#
+# PROD 環境：
+# Apm:
+#   apmserver:
+#     enabled: true
+#     server_url: http://ctprodapm:8200
+# COP:
+#   COPServer:
+#     host: "http://prodpushgateway"
+# Elasticsearch:
+#   ElasticsearchServer:
+#     hosts: http://prodes1:9200,http://prodes2:9200,http://prodes3:9200
+#
+# =============================================================================
+
+# =============================================================================
+# 使用範例
+# =============================================================================
+#
+# 1. APM 監控：
+#    from wecpy.apm_manager.apm_manager import APMManager
+#    apm = APMManager()
+#    
+#    # Context Manager（推薦）
+#    with apm.capture("my_operation"):
+#        do_something()
+#    
+#    # Decorator
+#    @apm.capture()
+#    def my_function():
+#        pass
+#
+# 2. COP 指標：
+#    from wecpy.cop_manager.cop_manager import COPManager
+#    cop = COPManager()
+#    
+#    # 計數器
+#    cop.counter("requests_total", 1, labels={"status": "success"})
+#    
+#    # 儀表
+#    cop.gauge("queue_size", 100)
+#    
+#    # 直方圖
+#    cop.histogram("process_seconds", 0.5)
+#
+# 3. Elasticsearch 搜尋：
+#    from wecpy.es_manager.es_manager import ElasticsearchManager
+#    es = ElasticsearchManager("ElasticsearchServer")
+#    
+#    # 搜尋
+#    results = es.search(
+#        index="logs-*",
+#        query={"match": {"level": "ERROR"}},
+#        size=100
+#    )
+#    
+#    # 聚合
+#    results = es.search(
+#        index="logs-*",
+#        aggs={"by_system": {"terms": {"field": "system.keyword"}}},
+#        size=0
+#    )
+#
+# =============================================================================

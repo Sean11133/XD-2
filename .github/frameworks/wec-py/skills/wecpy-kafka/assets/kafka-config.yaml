@@ -1,0 +1,147 @@
+# =============================================================================
+# wecpy Kafka 設定模板
+#
+# 說明：
+#   - 本檔案包含 BaseKafkaListener、WecTransport、WecApplication 的完整設定範例
+#   - 複製需要的區塊到您的 config.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 基礎設定（必要）
+# -----------------------------------------------------------------------------
+General:
+  system: "{IMX_SYSTEM}"
+  app: "{IMX_APP}"
+  app_type: Listener              # Listener | Schedule | Web
+  section: MK10
+
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000
+      backupCount: 5
+  root:
+    handlers: [console, file]
+    level: INFO
+
+# =============================================================================
+# Kafka 區塊 - BaseKafkaListener 使用
+# =============================================================================
+# 適用場景：
+#   - 只需要消費 Kafka 訊息
+#   - 不需要回覆訊息
+#   - 使用 BaseKafkaListener 繼承模式
+# =============================================================================
+Kafka:
+  # 連線設定名稱（可自訂）
+  eda:
+    topic: 'CTPILOT1-TEST-KAFKA'
+    group.id: 'CTPILOT1-TEST-KAFKA'
+    bootstrap.servers: fpkafka1:9092,fpkafka2:9092,fpkafka3:9092
+    session.timeout.ms: 60000
+    # 進階設定（可選）
+    # auto.offset.reset: earliest    # earliest | latest
+    # enable.auto.commit: true
+    # max.poll.records: 500
+  
+  # 可定義多個連線
+  # another_listener:
+  #   topic: 'ANOTHER-TOPIC'
+  #   group.id: 'ANOTHER-GROUP'
+  #   bootstrap.servers: kafka1:9092,kafka2:9092
+
+# =============================================================================
+# WecApp 區塊 - WecTransport 和 WecApplication 使用
+# =============================================================================
+
+WecApp:
+  # ---------------------------------------------------------------------------
+  # transport 設定 - WecTransport（生產者）使用
+  # ---------------------------------------------------------------------------
+  # 適用場景：
+  #   - 只需要發送 Kafka 訊息
+  #   - 排程任務發送通知
+  #   - 使用 WecTransport 直接實例化
+  # ---------------------------------------------------------------------------
+  transport:
+    message_type: Kafka
+    topic: 'CTPILOT1-TEST-KAFKA'
+    bootstrap.servers: fpkafka1:9092,fpkafka2:9092,fpkafka3:9092
+    retries: 0                      # 重試次數
+    linger.ms: 1                    # 批次等待時間
+    message.max.bytes: 1000012      # 最大訊息大小
+    inbox.port.range: 50000-50100   # 收件埠範圍
+
+  # ---------------------------------------------------------------------------
+  # app 設定 - WecApplication（雙向通訊）使用
+  # ---------------------------------------------------------------------------
+  # 適用場景：
+  #   - 需要接收請求並回覆
+  #   - Request-Reply 模式
+  #   - 使用 WecApplication 繼承模式
+  # ---------------------------------------------------------------------------
+  app:
+    message_type: Kafka
+    thread_count: 10                # 處理執行緒數量
+    always_reply: True              # 是否總是回覆
+    site: CTPILOT1                  # 站點代碼
+    topic: 'CTPILOT1-TEST-KAFKA'
+    group.id: 'CTPILOT1-TEST-KAFKA-APP'
+    bootstrap.servers: fpkafka1:9092,fpkafka2:9092,fpkafka3:9092
+    session.timeout.ms: 60000
+    inbox.port.range: 10000-10200   # 收件埠範圍
+
+# =============================================================================
+# APM 設定（建議加入，用於監控）
+# =============================================================================
+# Apm:
+#   apmserver:
+#     enabled: true
+#     server_url: http://ctpilotapm:8200
+
+# =============================================================================
+# 使用範例
+# =============================================================================
+#
+# 1. BaseKafkaListener（消費者）：
+#    from wecpy.kafka_manager.base_kafka_listener import BaseKafkaListener
+#    class MyListener(BaseKafkaListener):
+#        def do_process(self, msg):
+#            # 處理訊息
+#            return True
+#    listener = MyListener("eda")  # 使用 Kafka.eda 設定
+#    listener.start()
+#
+# 2. WecTransport（生產者）：
+#    from wecpy.wec_application.wec_transport import WecTransport
+#    from wecpy.wec_application.wec_doc import WecDoc
+#    transport = WecTransport()  # 使用 WecApp.transport 設定
+#    doc = WecDoc()
+#    doc.set_body({"data": "value"})
+#    transport.send(doc)
+#
+# 3. WecApplication（雙向通訊）：
+#    from wecpy.wec_application.wec_application import WecApplication
+#    from wecpy.wec_application.wec_doc import WecDoc
+#    class MyApp(WecApplication):
+#        def do_process(self, msg: WecDoc) -> WecDoc:
+#            # 處理請求
+#            reply = WecDoc()
+#            reply.set_body({"result": "success"})
+#            return reply
+#    app = MyApp()  # 使用 WecApp.app 設定
+#    app.start()
+#
+# =============================================================================

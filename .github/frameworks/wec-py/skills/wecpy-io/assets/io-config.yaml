@@ -1,0 +1,102 @@
+# =============================================================================
+# wecpy IO 設定模板
+#
+# 說明：
+#   - 本檔案包含 FTP、S3、Notification、APIClient 的完整設定範例
+#   - 複製需要的區塊到您的 config.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 基礎設定（必要）
+# -----------------------------------------------------------------------------
+General:
+  system: "{IMX_SYSTEM}"
+  app: "{IMX_APP}"
+  app_type: Schedule
+  section: MK10
+
+Log:
+  version: 1
+  formatters:
+    format1:
+      format: "[%(asctime)s.%(msecs)03d] {%(system)s %(app)s %(filename)s: %(funcName)s:%(lineno)d} %(levelname)s %(tid)s - %(message)s"
+      datefmt: '%Y-%m-%d %H:%M:%S'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: format1
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.RotatingFileHandler
+      formatter: format1
+      filename: log/app.log
+      maxBytes: 10000000
+      backupCount: 5
+  root:
+    handlers: [console, file]
+    level: INFO
+
+# =============================================================================
+# FTP 設定 - FTPManager 使用
+# =============================================================================
+FTP:
+  # FTP 連線
+  sys_sch_ftp:
+    type: ftp
+    host: 10.18.30.164
+    port: 21
+    username: "{ftp_username}"
+    password: "{ftp_password}"
+  
+  # SFTP 連線
+  sys_sch_sftp:
+    type: sftp
+    host: 10.18.30.164
+    port: 22
+    username: "{ftp_username}"
+    password: "{ftp_password}"
+
+# =============================================================================
+# ObjectStorage 設定 - S3BucketManager 使用
+# =============================================================================
+ObjectStorage:
+  ObjectStorageServer:
+    endpoint_url: http://pilotcims3:10444
+    security_id: YOUR_ACCESS_KEY
+    security_key: YOUR_SECRET_KEY
+
+# =============================================================================
+# Notification 設定 - NotificationManger 使用
+# =============================================================================
+Notification:
+  pilot:
+    enabled: true
+    server_url: http://10.18.20.42:8032
+
+# =============================================================================
+# APIClient 設定 - ApiClientManager 使用
+# =============================================================================
+APIClient:
+  imxportal:
+    base_url: "http://10.18.20.56:8050"
+    timeout: 10
+    retry: 3
+    wec_pat: "{wec_pat}"
+  
+  ctifdc:
+    base_url: "http://ctifdc"
+    timeout: 10
+    retry: 3
+
+# =============================================================================
+# 環境變數設定（.env 檔案）
+# =============================================================================
+#
+# # FTP/SFTP
+# ftp_username=your_ftp_user
+# ftp_password=your_ftp_password
+#
+# # API
+# wec_pat=your_personal_access_token
+#
+# =============================================================================

@@ -36,29 +36,74 @@
 
 ---
 
+## ⚠️ Python 後端開發強制規則
+
+> 以下規則適用於**所有 Python 後端開發任務**，包含新專案、既有專案擴充、任何 `.py` 檔案的修改。
+
+### 規則 1：強制使用 wecpy
+
+所有 Python 後端程式碼**必須**整合 wecpy。禁止以裸 Python 標準庫或第三方套件（如 `os.environ`、`logging`、`pymysql` 等）替代 wecpy 已提供的功能。
+
+| wecpy 功能         | 禁止的替代做法                             |
+| ------------------ | ------------------------------------------ |
+| `ConfigManager`    | `os.environ`、hardcode 字串、`dotenv` 直讀 |
+| `LogManager`       | `print()`、`logging.getLogger()` 裸用      |
+| `OracleManager` 等 | 裸 `cx_Oracle`、`sqlalchemy.create_engine` |
+| `FTPManager`       | 裸 `ftplib`、`paramiko`                    |
+
+### 規則 2：強制初始化順序（不得逾越）
+
+無論新建或修改既有檔案，`main.py` 進入點**必須**以下列兩行開頭：
+
+```python
+# ✅ 必須連續兩行，中間不可插入任何程式碼
+from wecpy.config_manager import ConfigManager
+ConfigManager('config.yaml')
+
+# 之後才能匯入其他 wecpy 元件
+from wecpy.log_manager import LogManager
+log = LogManager.get_logger()
+```
+
+### 規則 3：init 前置確認（開發任何功能前）
+
+1. 確認 `requirements.txt` 已包含 `wecpy`（對應 Nexus 安裝來源）
+2. 確認 `PROD/config.yaml` 與 `PILOT/config.yaml` 已存在
+3. 確認 `IMX_ENV` 環境變數有設定（`PILOT` 或 `PROD`）
+4. 若三項任一缺失 → **中斷當前任務，先執行 `wecpy-init` 完成初始化**
+
+---
+
 ## Copilot Skills 索引
 
-| Skill                  | 路徑                                                       | 涵蓋範圍                                                                    |
-| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| wecpy-core             | `frameworks/wec-py/skills/wecpy-core/SKILL.md`             | ConfigManager、LogManager、DatabaseManager、Security                        |
-| wecpy-data-integration | `frameworks/wec-py/skills/wecpy-data-integration/SKILL.md` | ApiClient、Elasticsearch、DataCache、DataFetcher、BaseETL                   |
-| wecpy-messaging        | `frameworks/wec-py/skills/wecpy-messaging/SKILL.md`        | BaseKafkaListener、KafkaTransport、WecApplication、WecDoc、Notification     |
-| wecpy-infrastructure   | `frameworks/wec-py/skills/wecpy-infrastructure/SKILL.md`   | FTP、ObjectStorage、APM、COP                                                |
-| wecpy-data-fetcher     | `frameworks/wec-py/skills/wecpy-data-fetcher/SKILL.md`     | FetcherFactory、iFDC DataFetcher、iEDA DataFetcher、ParquetUtil、DuckDBUtil |
-| wecpy-testing          | `frameworks/wec-py/skills/wecpy-testing/SKILL.md`          | 單元測試、Mock 模式、Fixture、DI 測試、ETL 測試                             |
+| Skill             | 路徑                                                  | 涵蓋範圍                                                                                        |
+| ----------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| wecpy-core        | `frameworks/wec-py/skills/wecpy-core/SKILL.md`        | ConfigManager、LogManager、SecurityService、DataCacheManager、BaseETL、IMXAppContext、Converter |
+| wecpy-database    | `frameworks/wec-py/skills/wecpy-database/SKILL.md`    | OracleManager、TrinoManager、SQLServerManager、SQLAlchemy Model、ETL Pipeline                   |
+| wecpy-datafetcher | `frameworks/wec-py/skills/wecpy-datafetcher/SKILL.md` | FetcherFactory（gRPC stubs）、iFDC、iEDA DataFetcher、ParquetUtil、DuckDBUtil                   |
+| wecpy-fdc         | `frameworks/wec-py/skills/wecpy-fdc/SKILL.md`         | FdcClient（ml.core.fdc）、fdc_config.yaml 驅動、高階 FDC 擷取、Parquet/DuckDB                   |
+| wecpy-io          | `frameworks/wec-py/skills/wecpy-io/SKILL.md`          | FTPManager、S3BucketManager、NotificationManger、ApiClientManager                               |
+| wecpy-kafka       | `frameworks/wec-py/skills/wecpy-kafka/SKILL.md`       | BaseKafkaListener、WecTransport、WecApplication、WecDoc、WecEnvelope                            |
+| wecpy-monitoring  | `frameworks/wec-py/skills/wecpy-monitoring/SKILL.md`  | APMManager、COPManager（Prometheus）、ElasticsearchManager                                      |
+| wecpy-fix-init    | `frameworks/wec-py/skills/wecpy-fix-init/SKILL.md`    | 自動攟描修復 init 缺失（requirements.txt、config.yaml、main.py 順序、.env）不詢問直接執行       |
+| wecpy-refactor    | `frameworks/wec-py/skills/wecpy-refactor/SKILL.md`    | 舊專案重構、POC→正式、Strangler Fig、Model/DAO/Service 分層                                     |
 
 ---
 
 ## 快速任務入口
 
-| 任務               | 使用方式                        |
-| ------------------ | ------------------------------- |
-| 初始化新專案       | 觸發 prompt `wecpy-init`        |
-| 了解框架           | 觸發 prompt `wecpy-intro`       |
-| 開發功能           | 觸發 prompt `wecpy-develop`     |
-| 資料整合 / Fetcher | 觸發 skill `wecpy-data-fetcher` |
-| Kafka / 事件驅動   | 觸發 skill `wecpy-messaging`    |
-| 測試               | 觸發 skill `wecpy-testing`      |
+| 任務                           | 使用方式                       |
+| ------------------------------ | ------------------------------ | --- | -------------------------- | --------------------------------------- |
+| 初始化新專案                   | 觸發 prompt `wecpy-init`       |
+| 了解框架                       | 觸發 prompt `wecpy-intro`      |
+| 開發功能                       | 觸發 prompt `wecpy-develop`    |
+| 資料庫操作（Oracle/Trino/SS）  | 觸發 skill `wecpy-database`    |
+| gRPC 低階資料擷取（iFDC/iEDA） | 觸發 skill `wecpy-datafetcher` |
+| FDC 高階擷取（YAML 驅動）      | 觸發 skill `wecpy-fdc`         |
+| Kafka / 事件驅動               | 觸發 skill `wecpy-kafka`       |
+| 檔案 / IO / 通知 / HTTP        | 觸發 skill `wecpy-io`          |
+| 監控 / APM / Prometheus / ES   | 觸發 skill `wecpy-monitoring`  |
+| 舊專案重構 / POC 上線          | 觸發 skill `wecpy-refactor`    |     | Python init 結構缺失或錯誤 | 觸發 skill `wecpy-fix-init`（直接修復） |
 
 ---
 

@@ -81,21 +81,12 @@ mypy: error: Argument of type "X" cannot be assigned to parameter of type "Y"
 
 ---
 
-## Heal 策略
+## Heal 策略（摘要）
 
-### 策略矩陣
+> 📌 **完整 Heal 策略**：`ai-loop/core/escape-hatch.md`
 
-| 情境                         | 修復策略                                |
-| ---------------------------- | --------------------------------------- |
-| 同一 error_id 出現 1–2 次    | 直接修復（最小變更）                    |
-| 同一 error_id 出現 3 次      | 嘗試重構（替代方案）                    |
-| 同一 error_id 出現 5 次      | 觸發 Escape Hatch                       |
-| 多個 error_id 同時出現       | 優先修復 BLOCK > WARN，從最底層錯誤開始 |
-| TEST_FAIL 懷疑測試本身有問題 | 分析測試邏輯，僅在有明確理由時修改測試  |
-
-### 最小修改原則
-
-1. **一次只修一個問題**（防止引入新錯誤）
-2. **不做無關重構**（只修改直接相關的程式碼）
-3. **保留所有測試**（不刪除、不跳過失敗的測試）
-4. **修改後記錄**（在 Loop State 的 `cumulative_changes` 中登記）
+- error_id 出現 1–2 次 → 直接修復（最小變更）
+- error_id 出現 3 次 → 重構（嘗試替代方案）
+- error_id 出現 5 次 → 觸發 Escape Hatch
+- 多個錯誤同時出現 → 優先 BLOCK > WARN，從最底層開始
+- 一次只修一個問題；保留所有測試；修改後記錄至 `cumulative_changes`

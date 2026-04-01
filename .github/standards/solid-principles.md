@@ -658,7 +658,21 @@ class ProductService:
 
 ---
 
-## 6. CR 審查總結檢查清單
+## 6. 自動偵測觸發規則
+
+> AI 在開發或審查時，偵測到以下徵兆時**必須主動提醒**可能的 SOLID 違反：
+
+| 偵測到的徵兆                                                   | 疑似違反原則 | 建議行動                        |
+| -------------------------------------------------------------- | ------------ | ------------------------------- |
+| 類別超過 200 行                                                | **SRP**      | 分析職責，考慮拆分或使用 Facade |
+| `if-else` / `switch` 超過 5 個分支依型別判斷                   | **OCP**      | 改用 Strategy / Template Method |
+| 子類別 `override` 後改變原有語意或拋出 `NotSupportedException` | **LSP**      | 重新設計繼承體系                |
+| 介面方法超過 7 個                                              | **ISP**      | 拆分介面                        |
+| `new ConcreteClass()` 出現在業務邏輯層                         | **DIP**      | 改用 Factory 或 DI Container    |
+
+---
+
+## 7. CR 審查總結檢查清單
 
 以下為 Code Review 時應逐項確認的 SOLID 原則檢查清單：
 
@@ -687,7 +701,7 @@ class ProductService:
 
 ---
 
-## 7. SOLID × Design Pattern 對應速查
+## 8. SOLID × Design Pattern 對應速查
 
 > 每個 SOLID 原則都有對應的設計模式作為「實作手段」。若程式碼違反某原則，以下是建議的修復路徑。
 > 詳細模式說明請參見 `standards/design-patterns.md`。
