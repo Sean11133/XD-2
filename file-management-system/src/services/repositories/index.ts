@@ -1,0 +1,1 @@
+export { InMemoryTagRepository } from "./InMemoryTagRepository";
