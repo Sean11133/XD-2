@@ -1,19 +1,21 @@
-import { useState, useRef, useEffect } from "react";
-import type { Label } from "../domain/labels/Label";
+import { useState, useEffect } from "react";
+import type { LabelWithPriority } from "../domain/labels/LabelWithPriority";
 import type { FileSystemNode } from "../domain/FileSystemNode";
+import { LabelEditorPanel } from "./LabelEditorPanel";
 
 interface LabelPanelProps {
-  allLabels: readonly Label[];
+  allLabels: readonly LabelWithPriority[];
   selectedNode: FileSystemNode | null;
-  nodeLabels: Label[];
-  onTagLabel: (label: Label) => void;
-  onRemoveLabel: (label: Label) => void;
-  onCreateLabel: (name: string) => void;
+  nodeLabels: LabelWithPriority[];
+  onTagLabel: (label: LabelWithPriority) => void;
+  onRemoveLabel: (label: LabelWithPriority) => void;
+  /** 建立或更新標籤：name, color, priority */
+  onSaveLabel: (name: string, color: string, priority: number) => void;
 }
 
 /**
  * LabelPanel — 緊湊節點標籤管理（右欄）
- * 顯示已選節點的標籤 chip、inline 貼上標籤選取、inline 建立新標籤
+ * 顯示已選節點的標籤 chip（含優先星級）、貼標籤選取、LabelEditorPanel 建立/編輯
  */
 export const LabelPanel: React.FC<LabelPanelProps> = ({
   allLabels,
@@ -21,33 +23,42 @@ export const LabelPanel: React.FC<LabelPanelProps> = ({
   nodeLabels,
   onTagLabel,
   onRemoveLabel,
-  onCreateLabel,
+  onSaveLabel,
 }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newLabelName, setNewLabelName] = useState("");
-  const createInputRef = useRef<HTMLInputElement>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingLabel, setEditingLabel] = useState<LabelWithPriority | null>(null);
 
-  const nodeHasLabel = (label: Label) => nodeLabels.some((l) => l.id === label.id);
+  const nodeHasLabel = (label: LabelWithPriority) => nodeLabels.some((l) => l.id === label.id);
   const availableLabels = allLabels.filter((l) => !nodeHasLabel(l));
 
   useEffect(() => {
-    if (showCreate) createInputRef.current?.focus();
-  }, [showCreate]);
+    if (showEditor) return;
+  }, [showEditor]);
 
   // Reset add menu when node changes
   useEffect(() => {
     setShowAddMenu(false);
-    setShowCreate(false);
-    setNewLabelName("");
+    setShowEditor(false);
+    setEditingLabel(null);
   }, [selectedNode]);
 
-  const handleCreate = () => {
-    const name = newLabelName.trim();
-    if (!name) return;
-    onCreateLabel(name);
-    setNewLabelName("");
-    setShowCreate(false);
+  const handleSave = (name: string, color: string, priority: number) => {
+    onSaveLabel(name, color, priority);
+    setShowEditor(false);
+    setEditingLabel(null);
+  };
+
+  const openCreateEditor = () => {
+    setEditingLabel(null);
+    setShowEditor(true);
+    setShowAddMenu(false);
+  };
+
+  const openEditEditor = (label: LabelWithPriority) => {
+    setEditingLabel(label);
+    setShowEditor(true);
+    setShowAddMenu(false);
   };
 
   return (
@@ -126,7 +137,7 @@ export const LabelPanel: React.FC<LabelPanelProps> = ({
             {availableLabels.length > 0 && (
               <div>
                 <button
-                  onClick={() => { setShowAddMenu((v) => !v); setShowCreate(false); }}
+                  onClick={() => { setShowAddMenu((v) => !v); setShowEditor(false); }}
                   className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer"
                   style={{ border: "1px solid var(--accent)", color: "var(--accent)", background: "transparent" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--accent-light)"; }}
@@ -151,74 +162,58 @@ export const LabelPanel: React.FC<LabelPanelProps> = ({
                     style={{ background: "var(--bg-surface2)", border: "1px solid var(--border-light)" }}
                   >
                     {availableLabels.map((label) => (
-                      <button
-                        key={label.id}
-                        onClick={() => { onTagLabel(label); setShowAddMenu(false); }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer"
-                        style={{
-                          backgroundColor: label.color + "18",
-                          borderColor: label.color + "50",
-                          color: label.color,
-                        }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = label.color + "30"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = label.color + "18"; }}
-                        title={`貼上標籤：${label.name}`}
+                      <span key={label.id} className="flex items-center rounded-lg overflow-hidden"
+                        style={{ border: `1px solid ${label.color}50` }}
                       >
-                        <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: label.color }} />
-                        {label.name}
-                      </button>
+                        <button
+                          onClick={() => { onTagLabel(label); setShowAddMenu(false); }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-all cursor-pointer"
+                          style={{ backgroundColor: label.color + "18", color: label.color }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = label.color + "30"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = label.color + "18"; }}
+                          title={`貼上標籤：${label.name}`}
+                        >
+                          <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </button>
+                        <button
+                          onClick={() => { openEditEditor(label); setShowAddMenu(false); }}
+                          className="px-1.5 py-1 text-xs transition-all cursor-pointer opacity-50 hover:opacity-100"
+                          style={{ backgroundColor: label.color + "10", color: label.color }}
+                          title={`編輯標籤：${label.name}`}
+                        >✏</button>
+                      </span>
                     ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* ── 建立新標籤 ── */}
+            {/* ── 建立 / 編輯標籤（LabelEditorPanel） ── */}
             <div>
-              <button
-                onClick={() => { setShowCreate((v) => !v); setShowAddMenu(false); }}
-                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
-                style={{ border: "1px solid var(--border)", color: "var(--text-secondary)", background: "transparent" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                建立新標籤
-              </button>
+              {!showEditor && (
+                <button
+                  onClick={openCreateEditor}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  style={{ border: "1px solid var(--border)", color: "var(--text-secondary)", background: "transparent" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  建立新標籤
+                </button>
+              )}
 
-              {showCreate && (
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    ref={createInputRef}
-                    type="text"
-                    value={newLabelName}
-                    onChange={(e) => setNewLabelName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreate();
-                      if (e.key === "Escape") { setShowCreate(false); setNewLabelName(""); }
-                    }}
-                    placeholder="標籤名稱..."
-                    maxLength={30}
-                    className="flex-1 min-w-0 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-400"
-                    style={{ background: "var(--bg-surface2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              {showEditor && (
+                <div className="mt-2">
+                  <LabelEditorPanel
+                    initialLabel={editingLabel ?? undefined}
+                    onSave={handleSave}
+                    onCancel={() => { setShowEditor(false); setEditingLabel(null); }}
                   />
-                  <button
-                    onClick={handleCreate}
-                    disabled={!newLabelName.trim()}
-                    className="text-xs px-2.5 py-1.5 bg-violet-600 text-white rounded-lg disabled:opacity-40 hover:bg-violet-700 transition-colors whitespace-nowrap font-medium cursor-pointer"
-                  >
-                    建立並貼上
-                  </button>
-                  <button
-                    onClick={() => { setShowCreate(false); setNewLabelName(""); }}
-                    className="text-xs transition-colors cursor-pointer"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    取消
-                  </button>
                 </div>
               )}
             </div>

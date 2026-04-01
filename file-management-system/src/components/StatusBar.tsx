@@ -1,3 +1,5 @@
+import type { Theme } from "../hooks/useTheme";
+
 interface StatusBarProps {
   totalNodes: number;
   totalSize: string;
@@ -7,11 +9,21 @@ interface StatusBarProps {
   filteredCount: number;
   filterLabel: string;
   logCount: number;
+  /** 目前主題（可選，有值才顯示切換器） */
+  theme?: Theme;
+  /** 主題切換回調 */
+  onThemeChange?: (theme: Theme) => void;
 }
+
+const THEME_BUTTONS: { value: Theme; icon: string; label: string }[] = [
+  { value: "light", icon: "☀️", label: "明亮模式" },
+  { value: "dark",  icon: "🌙", label: "暗黑模式" },
+  { value: "ocean", icon: "🌊", label: "深海模式" },
+];
 
 /**
  * StatusBar — Windows 檔案總管風格底部狀態列
- * 顯示：總節點數 / 選取節點名稱+大小 / 篩選狀態 / 日誌筆數
+ * 顯示：總節點數 / 選取節點名稱+大小 / 篩選狀態 / 主題切換 / 日誌筆數
  */
 export const StatusBar: React.FC<StatusBarProps> = ({
   totalNodes,
@@ -22,6 +34,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   filteredCount,
   filterLabel,
   logCount,
+  theme,
+  onThemeChange,
 }) => {
   return (
     <div
@@ -63,13 +77,37 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         </span>
       )}
 
-      {/* Right: log count */}
-      <span className="flex items-center gap-1">
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-        {logCount} 筆日誌
-      </span>
+      {/* Right: theme switcher + log count */}
+      <div className="flex items-center gap-3">
+        {/* 3 主題切換器 */}
+        {theme && onThemeChange && (
+          <div className="flex items-center gap-0.5">
+            {THEME_BUTTONS.map(({ value, icon, label }) => (
+              <button
+                key={value}
+                onClick={() => onThemeChange(value)}
+                title={label}
+                aria-label={label}
+                className="w-6 h-6 flex items-center justify-center rounded text-[13px] transition-all"
+                style={{
+                  background: theme === value ? "var(--accent-light)" : "transparent",
+                  outline: theme === value ? "1px solid var(--accent)" : "none",
+                  opacity: theme === value ? 1 : 0.6,
+                }}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <span className="flex items-center gap-1">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          {logCount} 筆日誌
+        </span>
+      </div>
     </div>
   );
 };

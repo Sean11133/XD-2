@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FileSystemNode } from "../domain/FileSystemNode";
 import { Directory } from "../domain/Directory";
 import type { Label } from "../domain/labels/Label";
@@ -26,6 +26,12 @@ interface TreeNodeItemProps {
   parentDir?: Directory | null;
   /** 取得節點身上的標籤列表（由 App 透過 tagMediator 提供）*/
   getNodeLabels?: (node: FileSystemNode) => Label[];
+  /** 是否處於 inline 重命名/建立輸入模式 */
+  isEditing?: boolean;
+  /** inline 輸入確認回調（按 Enter 時觸發） */
+  onNameConfirm?: (name: string) => void;
+  /** inline 輸入取消回調（按 Esc 時觸發） */
+  onEditCancel?: () => void;
 }
 
 export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
@@ -37,8 +43,13 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   selectedNode,
   parentDir = null,
   getNodeLabels,
+  isEditing = false,
+  onNameConfirm,
+  onEditCancel,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [inputValue, setInputValue] = useState(node.name);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const path = currentPath ?? node.name;
   const indent = { paddingLeft: `${level * 1.25}rem` };
@@ -62,6 +73,36 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     onSelect?.(node, parentDir);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const trimmed = inputValue.trim();
+      if (trimmed) onNameConfirm?.(trimmed);
+    } else if (e.key === "Escape") {
+      onEditCancel?.();
+    }
+  };
+
+  /** Inline 輸入框（新增/重命名模式） */
+  const inlineInput = (
+    <input
+      ref={inputRef}
+      type="text"
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={() => onEditCancel?.()}
+      autoFocus
+      className="flex-1 text-sm px-1 rounded outline-none"
+      style={{
+        background: "var(--bg-hover)",
+        color: "var(--text-primary)",
+        border: "1px solid var(--accent)",
+        minWidth: 0,
+      }}
+      aria-label="輸入節點名稱"
+    />
+  );
+
   if (node.isDirectory()) {
     const dir = node as Directory;
     const children = dir.getChildren();
@@ -73,8 +114,10 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           className={`flex items-center gap-1.5 py-1 px-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors group`}
           style={{ ...indent, ...selectedStyle }}
           onClick={(e) => {
-            setIsExpanded((prev) => !prev);
-            handleNodeClick(e);
+            if (!isEditing) {
+              setIsExpanded((prev) => !prev);
+              handleNodeClick(e);
+            }
           }}
         >
           <span
@@ -83,9 +126,13 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           >
             ▶
           </span>
-          <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>
-            {node.getDisplayInfo()}
-          </span>
+          {isEditing ? (
+            inlineInput
+          ) : (
+            <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>
+              {node.getDisplayInfo()}
+            </span>
+          )}
           {labels.length > 0 && (
             <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
               {labels.slice(0, 2).map((label) => (
@@ -144,11 +191,17 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     <div
       className={`flex items-center gap-1.5 py-1 px-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer`}
       style={{ ...indent, ...selectedStyle }}
-      onClick={handleNodeClick}
+      onClick={!isEditing ? handleNodeClick : undefined}
     >
       <span className="w-3 flex-shrink-0" />
-      <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{node.getDisplayInfo()}</span>
-      {labels.length > 0 && (
+      {isEditing ? (
+        inlineInput
+      ) : (
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {node.getDisplayInfo()}
+        </span>
+      )}
+      {!isEditing && labels.length > 0 && (
         <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
           {labels.slice(0, 2).map((label) => (
             <span
