@@ -30,6 +30,9 @@ import { FileSystemFacade } from "./services/FileSystemFacade";
 import type { Label } from "./domain/labels/Label";
 import { LabelPanel } from "./components/LabelPanel";
 import { LabelFilterBar } from "./components/LabelFilterBar";
+import { BreadcrumbBar } from "./components/BreadcrumbBar";
+import { StatusBar } from "./components/StatusBar";
+import { useTheme } from "./hooks/useTheme";
 
 // Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
 const DEFAULT_CHAIN = new LogEntryDecoratorChain([
@@ -161,6 +164,9 @@ function getNodeTypeInfo(node: FileSystemNode): { icon: string; type: string; co
 }
 
 function App() {
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const { theme, setTheme } = useTheme();
+
   // root 初始值使用 sampleData，useEffect 後由後端 API 取代
   const [root, setRoot] = useState<Directory>(() => buildSampleTree());
 
@@ -206,18 +212,14 @@ function App() {
   }, []);
 
   // 進度面板 — 由 DashboardObserver 透過 callback 更新（null 時隱藏面板）
-  const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps | null>({
-    operationName: "等待操作",
-    percentage: 0,
-    current: 0,
-    total: 0,
-    message: "請選擇匯出格式或輸入搜尋關鍵字",
-    isDone: false,
-    phase: "export",
-  });
+  const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps | null>(null);
 
   // 日誌面板 — 由 ConsoleObserver 透過 callback 更新
   const [logs, setLogs] = useState<Array<LogEntry | DecoratedLogEntry>>([]);
+
+  // 底部面板可見性控制
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showLog, setShowLog] = useState(true);
 
   // 進度動畫計時器 — 允許取消未完成的動畫（換搜尋或匯出時清除舊計時器）
   const animationTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -297,6 +299,7 @@ function App() {
       // 取消上一次未完成的動畫
       animationTimers.current.forEach(clearTimeout);
       animationTimers.current = [];
+      setShowDashboard(true);  // 操作開始時自動展開進度面板
 
       // ── Phase 1: 同步匯出，用輕量 Subject 收集所有進度事件 ──
       const collectedEvents: ProgressEvent[] = [];
@@ -356,6 +359,7 @@ function App() {
         return;
       }
 
+      setShowDashboard(true);  // 搜尋開始時自動展開進度面板
       const opName = `搜尋「${kw}」`;
 
       // ── Phase 1: 同步走訪，用輕量 Subject 收集所有進度事件 ──
@@ -649,62 +653,124 @@ function App() {
     : 0;
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
+    <div
+      className="h-screen flex flex-col overflow-hidden"
+      style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}
+    >
       {/* ── Header ── */}
-      <header className="bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg flex-shrink-0">
+      <header
+        className="flex-shrink-0 shadow-lg"
+        style={{ background: "linear-gradient(to right, var(--header-from), var(--header-to))" }}
+      >
         <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
+          {/* App title */}
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📂</span>
+            <svg className="w-7 h-7 text-white opacity-90 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+            </svg>
             <div>
               <h1 className="text-base font-bold text-white leading-tight">雲端檔案管理系統</h1>
-              <p className="text-blue-200 text-xs">Cloud File Management System</p>
+              <p className="text-xs text-white opacity-60">Cloud File Management System</p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-blue-200 ml-auto">
-            <span><span className="font-bold text-white">{totalNodes}</span> 個節點</span>
-            <span><span className="font-bold text-white">{formatSize(totalSize)}</span></span>
+
+          {/* Stats */}
+          <div className="hidden sm:flex items-center gap-4 text-xs text-white opacity-70 ml-auto">
+            <span><span className="font-bold opacity-100">{totalNodes}</span> 個節點</span>
+            <span><span className="font-bold opacity-100">{formatSize(totalSize)}</span></span>
           </div>
-          <div className="flex gap-2 ml-auto sm:ml-0">
+
+          {/* Export + Theme toggle */}
+          <div className="flex gap-1.5 ml-auto sm:ml-0">
             <button
               onClick={handleExportXml}
-              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+              className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
             >
-              🗂 XML
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              XML
             </button>
             <button
               onClick={handleExportJson}
-              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+              className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
             >
-              📊 JSON
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+              </svg>
+              JSON
             </button>
             <button
               onClick={handleExportMarkdown}
-              className="text-xs px-3 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
+              className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
             >
-              📝 MD
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              MD
+            </button>
+
+            {/* ── Theme Toggle button ── */}
+            <button
+              onClick={() =>
+                setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")
+              }
+              title={`主題：${theme === "light" ? "淺色" : theme === "dark" ? "深色" : "系統預設"} (點擊切換)`}
+              className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20"
+            >
+              {theme === "dark" ? (
+                /* Moon */
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              ) : theme === "system" ? (
+                /* Monitor */
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              ) : (
+                /* Sun */
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              )}
             </button>
           </div>
         </div>
       </header>
 
+      {/* ── Breadcrumb Bar ── */}
+      <BreadcrumbBar root={root} selectedNode={selectedNode} onSelect={handleSelect} />
+
       {/* ── Banners ── */}
       {(serverError || isLoading) && (
         <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pt-3 space-y-2">
           {serverError && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-amber-800 text-sm">
-              <span className="text-lg">⚠️</span>
+            <div
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
+              style={{ background: "#fef3c7", border: "1px solid #f59e0b", color: "#92400e" }}
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
               <span className="flex-1">{serverError}</span>
-              <button
-                onClick={() => setServerError(null)}
-                className="text-amber-500 hover:text-amber-700 font-bold"
-              >
-                ✕
-              </button>
+              <button onClick={() => setServerError(null)} className="font-bold opacity-60 hover:opacity-100">✕</button>
             </div>
           )}
           {isLoading && (
-            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm">
-              <span className="animate-spin text-lg">⏳</span>
+            <div
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
+              style={{ background: "var(--accent-light)", border: "1px solid var(--border)", color: "var(--accent)" }}
+            >
+              <svg className="w-4 h-4 animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               <span>正在從後端載入資料...</span>
             </div>
           )}
@@ -713,12 +779,22 @@ function App() {
 
       {/* ── Main two-column ── */}
       <div className="flex-1 min-h-0 max-w-screen-xl mx-auto w-full px-6 py-4 flex gap-4 overflow-hidden">
-        {/* Left: Search + File Tree */}
+        {/* Left: Search + LabelFilterBar + File Tree */}
         <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
           {/* Search */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-3 py-2.5 flex-shrink-0">
+          <div
+            className="rounded-xl shadow-sm px-3 py-2.5 flex-shrink-0"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+          >
             <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔍</span>
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+                style={{ color: "var(--text-muted)" }}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               <input
                 ref={inputRef}
                 type="text"
@@ -726,12 +802,18 @@ function App() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="即時搜尋節點..."
-                className="w-full border border-slate-200 rounded-lg pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all bg-slate-50"
+                className="w-full rounded-lg pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                style={{
+                  background: "var(--bg-surface2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-primary)",
+                }}
               />
               {isSearchActive && (
                 <button
                   onClick={handleClear}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm"
+                  style={{ color: "var(--text-muted)" }}
                 >
                   ✕
                 </button>
@@ -748,14 +830,26 @@ function App() {
           />
 
           {/* File Tree */}
-          <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex-shrink-0">
+          <div
+            className="flex-1 min-h-0 rounded-xl shadow-sm overflow-hidden flex flex-col"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+              style={{ background: "var(--bg-surface2)", borderBottom: "1px solid var(--border-light)" }}
+            >
               <div className="flex items-center gap-2">
-                <span>🌲</span>
-                <span className="text-sm font-semibold text-slate-700">檔案樹</span>
+                <svg className="w-4 h-4" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                </svg>
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>檔案樹</span>
               </div>
               {labelFilter ? (
-                <span className="text-xs px-2 py-0.5 bg-violet-50 text-violet-700 rounded-full border border-violet-200 font-medium flex items-center gap-1">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1"
+                  style={{ background: "#f5f3ff", color: "#6d28d9", borderColor: "#ddd6fe" }}
+                >
                   <span
                     className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: labelFilter.color }}
@@ -763,11 +857,14 @@ function App() {
                   {labelFilter.name} · {labelFilterCount}
                 </span>
               ) : isSearchActive ? (
-                <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-200 font-medium">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                  style={{ background: "var(--accent-light)", color: "var(--accent)", borderColor: "var(--accent-light)" }}
+                >
                   {resultCount} 個結果
                 </span>
               ) : (
-                <span className="text-xs text-slate-400">{totalNodes} 個</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{totalNodes} 個</span>
               )}
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-3">
@@ -787,27 +884,36 @@ function App() {
         <div className="flex-1 min-w-0 overflow-y-auto flex flex-col gap-3 pr-1">
           {/* Node Detail / Empty State */}
           {selectedNode ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex-shrink-0">
+            <div
+              className="rounded-xl shadow-sm p-4 flex-shrink-0"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+            >
               <div className="flex items-start gap-3">
                 <span className="text-3xl leading-none mt-0.5">
                   {getNodeTypeInfo(selectedNode).icon}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h2 className="text-base font-bold text-slate-800 break-all">
+                    <h2 className="text-base font-bold break-all" style={{ color: "var(--text-primary)" }}>
                       {selectedNode.name}
                     </h2>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium border ${getNodeTypeInfo(selectedNode).color}`}
-                    >
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${getNodeTypeInfo(selectedNode).color}`}>
                       {getNodeTypeInfo(selectedNode).type}
                     </span>
                   </div>
-                  <div className="flex items-center flex-wrap gap-3 text-xs text-slate-500">
-                    <span>📦 {formatSize(selectedNode.getSizeKB())}</span>
+                  <div className="flex items-center flex-wrap gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    <span>
+                      <svg className="w-3 h-3 inline-block mr-0.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+                      </svg>
+                      {formatSize(selectedNode.getSizeKB())}
+                    </span>
                     {selectedNode.isDirectory() && (
                       <span>
-                        📄 {(selectedNode as Directory).getChildren().length} 個子項目
+                        <svg className="w-3 h-3 inline-block mr-0.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {(selectedNode as Directory).getChildren().length} 個子項目
                       </span>
                     )}
                     {nodeLabels.length > 0 && (
@@ -832,10 +938,16 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center flex-shrink-0">
-              <div className="text-4xl mb-2">👆</div>
-              <p className="text-slate-600 text-sm font-medium">點選左側節點</p>
-              <p className="text-slate-400 text-xs mt-1">選取檔案或資料夾以查看詳情與進行操作</p>
+            <div
+              className="rounded-xl border-2 border-dashed p-8 text-center flex-shrink-0"
+              style={{ background: "var(--bg-surface)", borderColor: "var(--border)" }}
+            >
+              <svg className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+              <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>點選左側節點</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>選取檔案或資料夾以查看詳情與進行操作</p>
             </div>
           )}
 
@@ -862,15 +974,113 @@ function App() {
             onRemoveLabel={handleRemoveLabel}
             onCreateLabel={handleCreateLabel}
           />
-
-          {/* ── Progress Panel ── */}
-          {dashboardProps && <DashboardPanel {...dashboardProps} />}
         </div>
       </div>
 
-      {/* ── Log Panel (bottom strip) ── */}
-      <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pb-4">
-        <LogPanel logs={logs} onClear={() => setLogs([])} />
+      {/* ── Status Bar ── */}
+      <StatusBar
+        totalNodes={totalNodes}
+        totalSize={formatSize(totalSize)}
+        selectedName={selectedNode?.name ?? null}
+        selectedSize={selectedNode ? formatSize(selectedNode.getSizeKB()) : null}
+        isFiltered={isSearchActive || !!labelFilter}
+        filteredCount={labelFilter ? labelFilterCount : resultCount}
+        filterLabel={
+          labelFilter
+            ? `標籤「${labelFilter.name}」`
+            : keyword
+              ? `搜尋「${keyword}」`
+              : ""
+        }
+        logCount={logs.length}
+      />
+
+      {/* ── Bottom Panels ── */}
+      <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pb-3 space-y-2">
+        {/* Toggle control bar */}
+        <div
+          className="flex items-center gap-2 px-4 py-1.5 rounded-xl"
+          style={{ background: "var(--bg-surface2)", border: "1px solid var(--border-light)" }}
+        >
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>面板</span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {/* Dashboard toggle */}
+            <button
+              onClick={() => setShowDashboard((v) => !v)}
+              title={showDashboard ? "收起進度面板" : "展開進度面板"}
+              className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg transition-all"
+              style={{
+                background: showDashboard ? "var(--accent-light)" : "transparent",
+                color: showDashboard ? "var(--accent)" : "var(--text-secondary)",
+                border: showDashboard ? "1px solid var(--accent)" : "1px solid var(--border)",
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              進度面板
+              {/* Activity dot when panel is hidden and has active content */}
+              {!showDashboard && dashboardProps && dashboardProps.percentage > 0 && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ background: dashboardProps.isDone ? "#10b981" : "var(--accent)" }}
+                />
+              )}
+              <svg
+                className={`w-3 h-3 transition-transform ${showDashboard ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Log toggle */}
+            <button
+              onClick={() => setShowLog((v) => !v)}
+              title={showLog ? "收起操作日誌" : "展開操作日誌"}
+              className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg transition-all"
+              style={{
+                background: showLog ? "var(--accent-light)" : "transparent",
+                color: showLog ? "var(--accent)" : "var(--text-secondary)",
+                border: showLog ? "1px solid var(--accent)" : "1px solid var(--border)",
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              操作日誌
+              {logs.length > 0 && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none"
+                  style={{
+                    background: showLog ? "var(--accent)" : "var(--border)",
+                    color: showLog ? "#fff" : "var(--text-secondary)",
+                  }}
+                >
+                  {logs.length}
+                </span>
+              )}
+              <svg
+                className={`w-3 h-3 transition-transform ${showLog ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Dashboard Panel */}
+        {showDashboard && dashboardProps && (
+          <DashboardPanel {...dashboardProps} />
+        )}
+
+        {/* Log Panel */}
+        {showLog && (
+          <LogPanel logs={logs} onClear={() => setLogs([])} />
+        )}
       </div>
     </div>
   );

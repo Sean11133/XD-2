@@ -37,21 +37,25 @@ export function ProgressBar({
   const barColor = isDone ? "bg-green-500" : "bg-blue-500";
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div
+      className="rounded-xl p-4 shadow-sm"
+      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+    >
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm">{isDone ? "✅" : "⏳"}</span>
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
             {isDone ? "完成！" : (operationName ?? "處理中...")}
           </span>
         </div>
         <span
-          className={`text-sm font-bold ${isDone ? "text-green-600" : "text-blue-600"}`}
+          className="text-sm font-bold"
+          style={{ color: isDone ? "#10b981" : "var(--accent)" }}
         >
           {percentage}%
         </span>
       </div>
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+      <div className="h-2.5 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
         <div
           className={`h-full rounded-full transition-all duration-300 ease-out ${barColor}`}
           style={{ width: `${percentage}%` }}

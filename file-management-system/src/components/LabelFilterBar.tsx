@@ -35,11 +35,17 @@ export const LabelFilterBar: React.FC<LabelFilterBarProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-3 py-2 flex-shrink-0">
+    <div
+      className="rounded-xl shadow-sm px-3 py-2 flex-shrink-0"
+      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+    >
       {/* Chip row */}
       <div className="flex items-center gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {/* 標籤標題 */}
-        <span className="flex-shrink-0 flex items-center gap-1 text-xs text-slate-400 font-medium mr-0.5">
+        <span
+          className="flex-shrink-0 flex items-center gap-1 text-xs font-medium mr-0.5"
+          style={{ color: "var(--text-muted)" }}
+        >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -98,7 +104,7 @@ export const LabelFilterBar: React.FC<LabelFilterBarProps> = ({
 
       {/* Inline create form */}
       {showCreate && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: "1px solid var(--border-light)" }}>
           <input
             ref={inputRef}
             type="text"
@@ -110,7 +116,12 @@ export const LabelFilterBar: React.FC<LabelFilterBarProps> = ({
             }}
             placeholder="標籤名稱..."
             maxLength={30}
-            className="flex-1 min-w-0 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            className="flex-1 min-w-0 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            style={{
+              background: "var(--bg-surface2)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+            }}
           />
           <button
             onClick={handleCreate}
@@ -121,7 +132,8 @@ export const LabelFilterBar: React.FC<LabelFilterBarProps> = ({
           </button>
           <button
             onClick={() => { setShowCreate(false); setNewName(""); }}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-xs transition-colors"
+            style={{ color: "var(--text-muted)" }}
           >
             取消
           </button>

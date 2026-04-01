@@ -9,10 +9,10 @@ interface LogPanelProps {
   maxLogs?: number; // 預設 500，超出時保留最新筆
 }
 
-const LEVEL_CLASS: Record<LogEntry["level"], string> = {
-  INFO: "text-gray-600",
-  SUCCESS: "text-green-600 font-medium",
-  WARNING: "text-yellow-600",
+const LEVEL_STYLE: Record<LogEntry["level"], React.CSSProperties> = {
+  INFO:    { color: "var(--text-secondary)" },
+  SUCCESS: { color: "#10b981", fontWeight: "500" },
+  WARNING: { color: "#f59e0b" },
 };
 
 const LEVEL_DOT: Record<LogEntry["level"], string> = {
@@ -21,21 +21,21 @@ const LEVEL_DOT: Record<LogEntry["level"], string> = {
   WARNING: "bg-yellow-400",
 };
 
-/** 將 styleHints 陣列對應到 Tailwind CSS class 字串 */
-const HINT_CLASS: Record<StyleHint, string> = {
-  "color-green": "text-emerald-600",
-  "color-yellow": "text-amber-500",
-  "color-blue": "text-blue-600",
-  "color-gray": "text-slate-400",
-  bold: "font-bold",
-  italic: "italic",
+/** 將 styleHints 陣列對應到 inline style 物件 */
+const HINT_STYLE: Record<StyleHint, React.CSSProperties> = {
+  "color-green": { color: "#10b981" },
+  "color-yellow": { color: "#f59e0b" },
+  "color-blue":  { color: "var(--accent)" },
+  "color-gray":  { color: "var(--text-muted)" },
+  bold:   { fontWeight: "bold" },
+  italic: { fontStyle: "italic" },
 };
 
-function resolveRowClass(entry: LogEntry | DecoratedLogEntry): string {
+function resolveRowStyle(entry: LogEntry | DecoratedLogEntry): React.CSSProperties {
   if ("styleHints" in entry && entry.styleHints.length > 0) {
-    return entry.styleHints.map((h) => HINT_CLASS[h]).join(" ");
+    return Object.assign({}, ...entry.styleHints.map((h) => HINT_STYLE[h]));
   }
-  return LEVEL_CLASS[entry.level];
+  return LEVEL_STYLE[entry.level];
 }
 
 function formatTime(date: Date): string {
@@ -59,47 +59,75 @@ export function LogPanel({ logs, onClear, maxLogs = 500 }: LogPanelProps) {
   }, [logs]);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div
+      className="rounded-xl shadow-sm overflow-hidden"
+      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+    >
       {/* 標題列 */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
+      <div
+        className="flex items-center justify-between px-5 py-3"
+        style={{ background: "var(--bg-surface2)", borderBottom: "1px solid var(--border-light)" }}
+      >
         <div className="flex items-center gap-2">
-          <span className="text-slate-600">📋</span>
-          <span className="text-sm font-semibold text-slate-700">操作日誌</span>
+          <svg className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>操作日誌</span>
           {logs.length > 0 && (
-            <span className="text-xs bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 font-medium">
+            <span
+              className="text-xs rounded-full px-2 py-0.5 font-medium"
+              style={{ background: "var(--border)", color: "var(--text-secondary)" }}
+            >
               {logs.length}
             </span>
           )}
         </div>
         <button
           onClick={onClear}
-          className="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="rounded-lg px-3 py-1 text-xs transition-colors"
+          style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)";
+            (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+            (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+          }}
         >
           清除日誌
         </button>
       </div>
 
       {/* 日誌列表 */}
-      <div className="max-h-64 overflow-y-auto px-4 py-2 font-mono text-xs bg-slate-50/50">
+      <div
+        className="max-h-48 overflow-y-auto px-4 py-2 font-mono text-xs"
+        style={{ background: "var(--bg-surface2)" }}
+      >
         {displayLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-            <span className="mb-1 text-2xl">📭</span>
+          <div className="flex flex-col items-center justify-center py-8" style={{ color: "var(--text-muted)" }}>
+            <svg className="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
             <p>暫無日誌</p>
           </div>
         ) : (
           displayLogs.map((entry, idx) => {
-            const rowClass = resolveRowClass(entry);
+            const rowStyle = resolveRowStyle(entry);
             const icon =
               "styleHints" in entry ? (entry as DecoratedLogEntry).icon : undefined;
             return (
               <div
                 key={idx}
-                className={`flex items-start gap-2 py-0.5 ${rowClass}`}
+                className="flex items-start gap-2 py-0.5"
+                style={rowStyle}
               >
                 <div
                   className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${LEVEL_DOT[entry.level]}`}
                 />
-                <span className="flex-shrink-0 text-slate-400">
+                <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>
                   {formatTime(entry.timestamp)}
                 </span>
                 <span className="flex-shrink-0 font-semibold">[{entry.level}]</span>
