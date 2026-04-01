@@ -28,11 +28,17 @@ import { exportToMarkdown } from "./services/exporters/MarkdownExporter";
 import { countNodes } from "./services/exporters/countNodes";
 import { FileSystemFacade } from "./services/FileSystemFacade";
 import type { Label } from "./domain/labels/Label";
+import type { LabelWithPriority } from "./domain/labels/LabelWithPriority";
 import { LabelPanel } from "./components/LabelPanel";
-import { LabelFilterBar } from "./components/LabelFilterBar";
 import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { StatusBar } from "./components/StatusBar";
+import { SidebarHeader } from "./components/SidebarHeader";
+import { SearchFilterBar } from "./components/SearchFilterBar";
+import { NodeDetailDrawer } from "./components/NodeDetailDrawer";
 import { useTheme } from "./hooks/useTheme";
+import { useNodeDrawer } from "./hooks/useNodeDrawer";
+import { searchFilterService } from "./services/SearchFilterService";
+import { ExplorerView } from "./components/ExplorerView";
 
 // Decorator Chain — 全域常數，避免每次 render 重建（OCP：新增關鍵字只需新增 Decorator）
 const DEFAULT_CHAIN = new LogEntryDecoratorChain([
@@ -51,102 +57,21 @@ function formatSize(sizeKB: number): string {
 }
 
 /**
- * 遞迴建立標籤篩選路徑集合。
- * 走訪每個子節點，判斷是否掛有指定 Label；
- * 若有，則將該路徑與所有祖先路徑加入 result（保持節點可見）。
+ * 將篩選結果（matchedPaths 集合）重建為子樹，用於「僅匯出篩選結果」。
  */
-function buildLabelMatchedPaths(
-  dir: Directory,
-  label: Label,
-  dirPath: string,
-  result: Set<string>,
-  getLabels: (node: import("./domain/FileSystemNode").FileSystemNode) => import("./domain/labels/Label").Label[],
-): boolean {
-  let hasMatch = false;
-  for (const child of dir.getChildren()) {
-    const childPath = `${dirPath}/${child.name}`;
-    const childLabels = getLabels(child);
-    const childHasLabel = childLabels.some((l) => l.id === label.id);
-    if (child.isDirectory()) {
-      const descMatch = buildLabelMatchedPaths(
-        child as Directory,
-        label,
-        childPath,
-        result,
-        getLabels,
-      );
-      if (descMatch || childHasLabel) {
-        result.add(childPath);
-        hasMatch = true;
-      }
-    } else {
-      if (childHasLabel) {
-        result.add(childPath);
-        hasMatch = true;
+function buildFilteredTree(node: Directory, pathPrefix: string, matchedPaths: Set<string>): Directory {
+  const filtered = new Directory(node.name);
+  for (const child of node.getChildren()) {
+    const childPath = `${pathPrefix}/${child.name}`;
+    if (matchedPaths.has(childPath)) {
+      if (child.isDirectory()) {
+        filtered.addChild(buildFilteredTree(child as Directory, childPath, matchedPaths));
+      } else {
+        filtered.addChild(child);
       }
     }
   }
-  return hasMatch;
-}
-
-/**
- * 遞迴建立搜尋命中路徑集合，並透過 Subject 發佈掃描進度。
- * Observer Pattern — 每走訪一個子節點，通知所有訂閱者（OCP：不修改既有 Observer 實作）
- */
-function buildMatchedPathsWithProgress(
-  dir: Directory,
-  keyword: string,
-  dirPath: string,
-  result: Set<string>,
-  subject: IProgressSubject,
-  total: number,
-  counter: { current: number },
-  operationName: string,
-): boolean {
-  const lower = keyword.toLowerCase();
-  let hasMatch = false;
-
-  for (const child of dir.getChildren()) {
-    const childPath = `${dirPath}/${child.name}`;
-    counter.current++;
-    const percentage = Math.min(
-      100,
-      Math.round((counter.current / total) * 100),
-    );
-
-    if (child.isDirectory()) {
-      const childHasMatch = buildMatchedPathsWithProgress(
-        child as Directory,
-        keyword,
-        childPath,
-        result,
-        subject,
-        total,
-        counter,
-        operationName,
-      );
-      if (child.name.toLowerCase().includes(lower) || childHasMatch) {
-        result.add(childPath);
-        hasMatch = true;
-      }
-    } else {
-      if (child.name.toLowerCase().includes(lower)) {
-        result.add(childPath);
-        hasMatch = true;
-      }
-    }
-
-    subject.notify({
-      phase: "scan",
-      operationName,
-      current: counter.current,
-      total,
-      percentage,
-      message: `掃描 ${child.name}`,
-      timestamp: new Date(),
-    });
-  }
-  return hasMatch;
+  return filtered;
 }
 
 function getNodeTypeInfo(node: FileSystemNode): { icon: string; type: string; color: string } {
@@ -167,6 +92,15 @@ function App() {
   // ── Theme ──────────────────────────────────────────────────────────────────
   const { theme, setTheme } = useTheme();
 
+  // ── Node Drawer ────────────────────────────────────────────────────────────
+  const nodeDrawer = useNodeDrawer();
+  const { isOpen: isDrawerOpen, node: drawerNode, open: openNodeDrawer, close: closeNodeDrawer } = nodeDrawer;
+
+  // ── collapseAll trigger ────────────────────────────────────────────────────
+  const [collapseAllTrigger, setCollapseAllTrigger] = useState(0);
+  // null = 不顯示，其他值 = 待確認的匠出格式
+  const [pendingExportFormat, setPendingExportFormat] = useState<"xml" | "json" | "md" | null>(null);
+
   // root 初始值使用 sampleData，useEffect 後由後端 API 取代
   const [root, setRoot] = useState<Directory>(() => buildSampleTree());
 
@@ -179,7 +113,6 @@ function App() {
 
   const [inputValue, setInputValue] = useState("");
   const [keyword, setKeyword] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Facade（統一入口）+ Command Pattern 狀態 ──
   const [selectedNode, setSelectedNode] = useState<FileSystemNode | null>(null);
@@ -231,7 +164,7 @@ function App() {
 
   // ── Label / Tag 狀態 ──
   const [labelVersion, setLabelVersion] = useState(0);
-  const [labelFilter, setLabelFilter] = useState<Label | null>(null);
+  const [labelFilter, setLabelFilter] = useState<LabelWithPriority | null>(null);
 
   // 計算總大小與節點數（root 穩定，不重新建立）
   const totalSize = useMemo(() => root.getSizeKB(), [root]);
@@ -257,8 +190,8 @@ function App() {
       const rootHasLabel = facade
         .getNodeLabels(root)
         .some((l) => l.id === labelFilter.id);
-      const hasDesc = buildLabelMatchedPaths(root, labelFilter, root.name, paths, (n) => facade.getNodeLabels(n));
-      if (hasDesc || rootHasLabel) paths.add(root.name);
+      searchFilterService.buildLabelMatchedPaths(root, labelFilter, root.name, paths, (n) => facade.getNodeLabels(n));
+      if (rootHasLabel) paths.add(root.name);
       return paths;
     }
     return matchedPaths;
@@ -382,7 +315,7 @@ function App() {
 
       const paths = new Set<string>();
       const counter = { current: 0 };
-      const rootHasDescendants = buildMatchedPathsWithProgress(
+      searchFilterService.buildKeywordMatchedPaths(
         root,
         kw,
         root.name,
@@ -393,10 +326,7 @@ function App() {
         opName,
       );
 
-      if (
-        rootHasDescendants ||
-        root.name.toLowerCase().includes(kw.toLowerCase())
-      ) {
+      if (root.name.toLowerCase().includes(kw.toLowerCase())) {
         paths.add(root.name);
       }
 
@@ -441,8 +371,9 @@ function App() {
     (node: FileSystemNode, parent: Directory | null) => {
       setSelectedNode(node);
       setSelectedParent(parent);
+      openNodeDrawer(node);
     },
-    [],
+    [openNodeDrawer],
   );
 
   const handleCopy = useCallback(() => {
@@ -454,7 +385,7 @@ function App() {
 
   const handlePaste = useCallback(() => {
     if (!selectedNode?.isDirectory()) return;
-    const sourceNode = facade["_clipboard"]?.getNode?.() ?? null;
+    const sourceNode = facade.getClipboardNode();
     const result = facade.paste(selectedNode as Directory);
     appendLog({
       level: "SUCCESS",
@@ -568,19 +499,19 @@ function App() {
     [selectedNode, facade, appendLog],
   );
 
-  const handleCreateLabel = useCallback(
-    (name: string) => {
-      const label = facade.createLabel(name, selectedNode ?? undefined);
+  const handleSaveLabel = useCallback(
+    (name: string, color: string, priority: number) => {
+      const label = facade.createLabel(name, selectedNode ?? undefined, { color, priority });
       if (selectedNode) {
         appendLog({
           level: "INFO",
-          message: `🏷️ 建立並貼標籤：${label.name} → ${selectedNode.name}`,
+          message: `🏷️ 建立並貼標籤：${label.name} (${priority}★) → ${selectedNode.name}`,
           timestamp: new Date(),
         });
       } else {
         appendLog({
           level: "INFO",
-          message: `🏷️ 建立標籤：${label.name}`,
+          message: `🏷️ 建立標籤：${label.name} (${priority}★)`,
           timestamp: new Date(),
         });
       }
@@ -589,17 +520,17 @@ function App() {
     [selectedNode, facade, appendLog],
   );
 
-  const handleFilterByLabel = useCallback((label: Label | null) => {
+  /** LabelFilterBar 向後相容（T-13 重構後移除） */
+  const handleCreateLabel = useCallback(
+    (name: string) => handleSaveLabel(name, "#48CAE4", 1),
+    [handleSaveLabel],
+  );
+
+  const handleFilterByLabel = useCallback((label: LabelWithPriority | null) => {
     setLabelFilter(label);
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      performSearch(inputValue);
-    }
-  };
 
   // 即時搜尋 debounce — inputValue 變動 350ms 後自動執行（Enter 鍵仍可立即觸發）
   useEffect(() => {
@@ -610,38 +541,32 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputValue]);
 
-  const handleClear = () => {
-    setInputValue("");
-    setKeyword("");
-    setMatchedPaths(undefined);
-    inputRef.current?.focus();
-  };
-
   const handleExportXml = () => {
-    runWithProgress(
-      (subject) => exportToXml(root, subject),
-      "file-system.xml",
-      "application/xml;charset=utf-8",
-      "匯出 XML",
-    );
+    if (effectiveMatchedPaths) { setPendingExportFormat("xml"); return; }
+    runWithProgress((subject) => exportToXml(root, subject), "file-system.xml", "application/xml;charset=utf-8", "匯出 XML");
   };
 
   const handleExportJson = () => {
-    runWithProgress(
-      (subject) => exportToJson(root, subject),
-      "file-system.json",
-      "application/json;charset=utf-8",
-      "匯出 JSON",
-    );
+    if (effectiveMatchedPaths) { setPendingExportFormat("json"); return; }
+    runWithProgress((subject) => exportToJson(root, subject), "file-system.json", "application/json;charset=utf-8", "匯出 JSON");
   };
 
   const handleExportMarkdown = () => {
-    runWithProgress(
-      (subject) => exportToMarkdown(root, subject),
-      "file-system.md",
-      "text/markdown;charset=utf-8",
-      "匯出 Markdown",
-    );
+    if (effectiveMatchedPaths) { setPendingExportFormat("md"); return; }
+    runWithProgress((subject) => exportToMarkdown(root, subject), "file-system.md", "text/markdown;charset=utf-8", "匯出 Markdown");
+  };
+
+  const handleExportWithScope = (scope: "all" | "filtered") => {
+    const fmt = pendingExportFormat;
+    setPendingExportFormat(null);
+    if (!fmt) return;
+    const exportRoot =
+      scope === "filtered" && effectiveMatchedPaths
+        ? buildFilteredTree(root, root.name, effectiveMatchedPaths)
+        : root;
+    if (fmt === "xml") runWithProgress((s) => exportToXml(exportRoot, s), "file-system.xml", "application/xml;charset=utf-8", "匯出 XML");
+    else if (fmt === "json") runWithProgress((s) => exportToJson(exportRoot, s), "file-system.json", "application/json;charset=utf-8", "匯出 JSON");
+    else runWithProgress((s) => exportToMarkdown(exportRoot, s), "file-system.md", "text/markdown;charset=utf-8", "匯出 Markdown");
   };
 
   const isSearchActive = keyword.trim().length > 0;
@@ -714,9 +639,9 @@ function App() {
             {/* ── Theme Toggle button ── */}
             <button
               onClick={() =>
-                setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")
+                setTheme(theme === "light" ? "dark" : theme === "dark" ? "ocean" : "light")
               }
-              title={`主題：${theme === "light" ? "淺色" : theme === "dark" ? "深色" : "系統預設"} (點擊切換)`}
+              title={`主題：${theme === "light" ? "淺色" : theme === "dark" ? "深色" : "深海"} (點擊切換)`}
               className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20"
             >
               {theme === "dark" ? (
@@ -725,11 +650,11 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
-              ) : theme === "system" ? (
-                /* Monitor */
+              ) : theme === "ocean" ? (
+                /* Wave */
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    d="M3 12c3 0 3-3 6-3s3 3 6 3 3-3 6-3M3 18c3 0 3-3 6-3s3 3 6 3 3-3 6-3" />
                 </svg>
               ) : (
                 /* Sun */
@@ -779,54 +704,18 @@ function App() {
 
       {/* ── Main two-column ── */}
       <div className="flex-1 min-h-0 max-w-screen-xl mx-auto w-full px-6 py-4 flex gap-4 overflow-hidden">
-        {/* Left: Search + LabelFilterBar + File Tree */}
+        {/* Left: SearchFilterBar + SidebarHeader + File Tree */}
         <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
-          {/* Search */}
-          <div
-            className="rounded-xl shadow-sm px-3 py-2.5 flex-shrink-0"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-          >
-            <div className="relative">
-              <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
-                style={{ color: "var(--text-muted)" }}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="即時搜尋節點..."
-                className="w-full rounded-lg pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                style={{
-                  background: "var(--bg-surface2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text-primary)",
-                }}
-              />
-              {isSearchActive && (
-                <button
-                  onClick={handleClear}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Label Filter Bar */}
-          <LabelFilterBar
+          {/* 統一搜尋 + 標籤篩選列 */}
+          <SearchFilterBar
+            keyword={inputValue}
+            onKeywordChange={setInputValue}
+            onSearch={performSearch}
             allLabels={allLabels}
             activeFilter={labelFilter}
             onFilterByLabel={handleFilterByLabel}
             onCreateLabel={handleCreateLabel}
+            isSearching={false}
           />
 
           {/* File Tree */}
@@ -834,16 +723,22 @@ function App() {
             className="flex-1 min-h-0 rounded-xl shadow-sm overflow-hidden flex flex-col"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
           >
+            {/* SidebarHeader: 新增資料夾/檔案 + 全部收合 */}
+            <SidebarHeader
+              onAddFolder={() => {
+                appendLog({ level: "INFO", message: "📁 新增資料夾（功能規劃中）", timestamp: new Date() });
+              }}
+              onAddFile={() => {
+                appendLog({ level: "INFO", message: "📄 新增檔案（功能規劃中）", timestamp: new Date() });
+              }}
+              onCollapseAll={() => setCollapseAllTrigger((v) => v + 1)}
+            />
             <div
-              className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+              className="flex items-center justify-between px-4 py-1.5 flex-shrink-0"
               style={{ background: "var(--bg-surface2)", borderBottom: "1px solid var(--border-light)" }}
             >
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-                </svg>
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>檔案樹</span>
+                <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>檔案樹</span>
               </div>
               {labelFilter ? (
                 <span
@@ -875,13 +770,30 @@ function App() {
                 onSelect={handleSelect}
                 selectedNode={selectedNode}
                 getNodeLabels={getNodeLabels}
+                collapseAllTrigger={collapseAllTrigger}
               />
             </div>
           </div>
         </div>
 
-        {/* Right: Detail + Actions */}
+        {/* Right: Explorer View + Actions */}
         <div className="flex-1 min-w-0 overflow-y-auto flex flex-col gap-3 pr-1">
+          {/* ── ExplorerView — Windows Explorer 右側瀏覽區 (US-03) ── */}
+          <div
+            className="rounded-xl shadow-sm overflow-hidden flex-shrink-0"
+            style={{ height: "280px", border: "1px solid var(--border)" }}
+          >
+            <ExplorerView
+              rootNode={root}
+              selectedNodeId={selectedNode?.name ?? null}
+              onFolderChange={(dir) => {
+                setSelectedNode(dir);
+                setSelectedParent(dir.isDirectory() ? (dir as Directory) : null);
+              }}
+              nodeDrawer={nodeDrawer}
+            />
+          </div>
+
           {/* Node Detail / Empty State */}
           {selectedNode ? (
             <div
@@ -972,7 +884,7 @@ function App() {
             nodeLabels={nodeLabels}
             onTagLabel={handleTagLabel}
             onRemoveLabel={handleRemoveLabel}
-            onCreateLabel={handleCreateLabel}
+            onSaveLabel={handleSaveLabel}
           />
         </div>
       </div>
@@ -993,6 +905,8 @@ function App() {
               : ""
         }
         logCount={logs.length}
+        theme={theme}
+        onThemeChange={setTheme}
       />
 
       {/* ── Bottom Panels ── */}
@@ -1082,6 +996,54 @@ function App() {
           <LogPanel logs={logs} onClear={() => setLogs([])} />
         )}
       </div>
+
+      {/* ── NodeDetailDrawer — 右側滑動抽屜 ── */}
+      <NodeDetailDrawer
+        isOpen={isDrawerOpen}
+        node={drawerNode}
+        nodeLabels={drawerNode ? facade.getNodeLabels(drawerNode) : []}
+        onClose={closeNodeDrawer}
+      />
+
+      {/* ── 篩選匯出確認 Dialog (US-04) ── */}
+      {pendingExportFormat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div
+            className="rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+          >
+            <h3 className="text-base font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+              選擇匯出範圍
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+              目前有篩選條件，請選擇要匯出的節點範圍：
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleExportWithScope("filtered")}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-left transition-colors cursor-pointer"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                僅匯出篩選結果（{labelFilterCount || resultCount} 個節點）
+              </button>
+              <button
+                onClick={() => handleExportWithScope("all")}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-left transition-colors cursor-pointer"
+                style={{ background: "var(--bg-surface2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              >
+                匯出全部（{totalNodes} 個節點）
+              </button>
+            </div>
+            <button
+              onClick={() => setPendingExportFormat(null)}
+              className="mt-3 w-full text-xs text-center cursor-pointer"
+              style={{ color: "var(--text-muted)" }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

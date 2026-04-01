@@ -5,6 +5,7 @@ import { WordDocument } from "../domain/WordDocument";
 import { ImageFile } from "../domain/ImageFile";
 import type { ISortStrategy } from "../domain/strategies/ISortStrategy";
 import type { Label } from "../domain/labels/Label";
+import type { LabelWithPriority } from "../domain/labels/LabelWithPriority";
 import { Clipboard } from "../domain/Clipboard";
 import { CommandInvoker } from "./CommandInvoker";
 import { CopyCommand } from "./commands/CopyCommand";
@@ -245,10 +246,14 @@ export class FileSystemFacade {
   /**
    * 建立或取得標籤（Flyweight Pool）。
    * 若傳入 node，自動執行一次 tagLabel（進入 Undo 歷程）。
-   * @returns 建立或取得的 Label 實體
+   * @returns 建立或取得的 LabelWithPriority 實體
    */
-  createLabel(name: string, node?: FileSystemNode): Label {
-    const label = this._factory.getOrCreate(name);
+  createLabel(
+    name: string,
+    node?: FileSystemNode,
+    options?: { color?: string; priority?: number },
+  ): Label {
+    const label = this._factory.getOrCreate(name, options);
     if (node) {
       this.tagLabel(node, label);
     }
@@ -257,15 +262,21 @@ export class FileSystemFacade {
 
   /**
    * 取得節點身上所有標籤（依 createdAt 排序）。
+   * 所有標籤均由 LabelFactory 建立，保證為 LabelWithPriority 實體。
    */
-  getNodeLabels(node: FileSystemNode): Label[] {
-    return this._mediator.getLabelsOf(node);
+  getNodeLabels(node: FileSystemNode): LabelWithPriority[] {
+    return this._mediator.getLabelsOf(node) as LabelWithPriority[];
+  }
+
+  /** 取得剪貼板中的來源節點（無內容時回傳 null）。 */
+  getClipboardNode(): FileSystemNode | null {
+    return this._clipboard.getNode() ?? null;
   }
 
   /**
    * 取得所有已建立的標籤（依 createdAt 排序）。
    */
-  getAllLabels(): readonly Label[] {
+  getAllLabels(): readonly LabelWithPriority[] {
     return this._factory.getAll();
   }
 

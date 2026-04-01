@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 60" preserveAspectRatio="none" fill="none">
+  <!-- Gentle wave strip for ocean theme header/footer decoration -->
+  <!-- Wave 1: deep ocean blue (bottom layer) -->
+  <path
+    d="M0 40 C150 20, 300 55, 450 35 C600 15, 750 50, 900 30 C1050 10, 1150 45, 1200 40 L1200 60 L0 60 Z"
+    fill="#0077B6"
+    fill-opacity="0.25"
+  />
+  <!-- Wave 2: mid ocean (middle layer) -->
+  <path
+    d="M0 48 C100 30, 250 58, 400 42 C550 26, 700 52, 850 36 C1000 20, 1100 50, 1200 44 L1200 60 L0 60 Z"
+    fill="#00B4D8"
+    fill-opacity="0.18"
+  />
+  <!-- Wave 3: surface shimmer (top layer) -->
+  <path
+    d="M0 54 C80 44, 200 60, 350 50 C500 40, 650 58, 800 46 C950 34, 1100 56, 1200 50 L1200 60 L0 60 Z"
+    fill="#48CAE4"
+    fill-opacity="0.12"
+  />
+</svg>

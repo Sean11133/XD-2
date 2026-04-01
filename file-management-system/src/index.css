@@ -89,3 +89,108 @@ body {
   & .hover\:text-slate-600      { color: var(--text-secondary)      !important; }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   🌊 Ocean Theme — 深海水族風格
+   ───────────────────────────────────────────────────────────────────── */
+[data-theme="ocean"] {
+  /* 背景層次：深海 → 海底 → 淺灘 */
+  --bg-app:        #0D1B2A;
+  --bg-surface:    #1B2838;
+  --bg-surface2:   #162231;
+  --bg-hover:      #1F3348;
+  --bg-selected:   #0E4B63;
+  /* 邊框 */
+  --border:        #1E4A6A;
+  --border-light:  #152436;
+  /* 文字：光線穿透海水的青藍色調 */
+  --text-primary:  #CAF0F8;
+  --text-secondary:#90E0EF;
+  --text-muted:    #48CAE4;
+  /* 強調色：珊瑚礁螢光青 */
+  --accent:        #00B4D8;
+  --accent-light:  #013A63;
+  --accent-text:   #0A1628;
+  /* Header 深海漸層 */
+  --header-from:   #023E8A;
+  --header-to:     #0077B6;
+  /* 生物發光輝光（裝飾用） */
+  --glow:          rgba(0, 180, 216, 0.15);
+  --glow-strong:   rgba(0, 180, 216, 0.30);
+
+  color-scheme: dark;
+}
+
+/* 覆寫 Tailwind utility classes（ocean 主題） */
+[data-theme="ocean"] {
+  & .bg-white             { background-color: var(--bg-surface)  !important; }
+  & .bg-slate-50          { background-color: var(--bg-surface2) !important; }
+  & .bg-slate-100         { background-color: var(--bg-surface2) !important; }
+  & .bg-slate-200         { background-color: var(--border)      !important; }
+  & .bg-violet-50         { background-color: #0e2a3a            !important; }
+  & .bg-violet-100        { background-color: #0d2d42            !important; }
+  & .bg-blue-100          { background-color: var(--bg-selected) !important; }
+
+  & .border-slate-100     { border-color: var(--border-light) !important; }
+  & .border-slate-200     { border-color: var(--border)       !important; }
+  & .border-slate-300     { border-color: var(--border)       !important; }
+  & .border-violet-100    { border-color: #0d3a5a             !important; }
+  & .border-violet-300    { border-color: #0a4f73             !important; }
+  & .border-blue-500      { border-color: var(--accent)       !important; }
+
+  & .text-slate-400       { color: var(--text-muted)      !important; }
+  & .text-slate-500       { color: var(--text-secondary)  !important; }
+  & .text-slate-600       { color: var(--text-secondary)  !important; }
+  & .text-slate-700       { color: var(--text-primary)    !important; }
+  & .text-slate-800       { color: var(--text-primary)    !important; }
+  & .text-gray-600        { color: var(--text-secondary)  !important; }
+  & .text-violet-700      { color: #90E0EF                !important; }
+  & .text-violet-600      { color: #48CAE4                !important; }
+  & .text-green-600       { color: #4ade80                !important; }
+  & .text-emerald-600     { color: #4ade80                !important; }
+
+  & .hover\:bg-blue-50:hover    { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-slate-50:hover   { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-slate-100:hover  { background-color: var(--bg-hover) !important; }
+  & .hover\:bg-violet-50:hover  { background-color: #0e2a3a         !important; }
+  & .hover\:bg-violet-200:hover { background-color: #0d3a5a         !important; }
+  & .hover\:text-slate-700      { color: var(--text-primary)        !important; }
+  & .hover\:text-slate-600      { color: var(--text-secondary)      !important; }
+
+  /* 捲軸改成珊瑚礁風格 */
+  & ::-webkit-scrollbar-thumb   { background: var(--accent)             !important; }
+  & ::-webkit-scrollbar-thumb:hover { background: var(--text-muted)     !important; }
+}
+
+/* Ocean 主題背景淡淡的波紋裝飾（只在 ocean 主題生效） */
+[data-theme="ocean"] body,
+[data-theme="ocean"] #root {
+  background: radial-gradient(ellipse at 20% 50%, rgba(0,119,182,0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(0,180,216,0.06) 0%, transparent 50%),
+              var(--bg-app);
+}
+
+/* Ocean header 底部波浪裝飾 */
+[data-theme="ocean"] .ocean-header {
+  position: relative;
+  overflow: hidden;
+}
+[data-theme="ocean"] .ocean-header::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: url("/src/assets/ocean-wave-strip.svg") repeat-x bottom center;
+  background-size: 600px 12px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Ocean 表面卡片 glow 效果 */
+[data-theme="ocean"] .ocean-card {
+  box-shadow: 0 0 16px var(--glow), 0 2px 8px rgba(0,0,0,0.4);
+}
+
+
+
