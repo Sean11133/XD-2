@@ -117,7 +117,7 @@ export class FileSystemFacade {
     private readonly _clipboard: Clipboard = Clipboard.getInstance(),
     private readonly _mediator: TagMediator = tagMediator,
     private readonly _factory: LabelFactory = labelFactory,
-    apiBaseUrl: string = "http://localhost:8000",
+    apiBaseUrl: string = "http://localhost:8080",
   ) {
     this._apiBaseUrl = apiBaseUrl;
   }

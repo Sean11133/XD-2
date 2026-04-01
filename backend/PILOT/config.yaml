@@ -2,7 +2,7 @@ General:
   system: WEC
   app: file-management
   app_type: WebAPI
-  section: MK20
+  section: MK22
 
 Log:
   version: 1
