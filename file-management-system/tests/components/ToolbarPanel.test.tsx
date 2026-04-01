@@ -35,7 +35,7 @@ describe("ToolbarPanel — 按鈕 disabled 狀態", () => {
 
   it("無選取節點時：排序選單為 disabled", () => {
     render(<ToolbarPanel {...defaultProps} />);
-    expect(screen.getByRole("combobox", { name: /排序/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /排序/ })).toBeDisabled();
   });
 
   it("canPaste=false 時：貼上按鈕為 disabled", () => {
@@ -43,24 +43,24 @@ describe("ToolbarPanel — 按鈕 disabled 狀態", () => {
     expect(screen.getByText(/貼上/)).toBeDisabled();
   });
 
-  it("canUndo=false 時：Undo 按鈕為 disabled", () => {
+  it("canUndo=false 時：復原按鈕為 disabled", () => {
     render(<ToolbarPanel {...defaultProps} canUndo={false} />);
-    expect(screen.getByText(/Undo/)).toBeDisabled();
+    expect(screen.getByText(/復原/)).toBeDisabled();
   });
 
-  it("canRedo=false 時：Redo 按鈕為 disabled", () => {
+  it("canRedo=false 時：重做按鈕為 disabled", () => {
     render(<ToolbarPanel {...defaultProps} canRedo={false} />);
-    expect(screen.getByText(/Redo/)).toBeDisabled();
+    expect(screen.getByText(/重做/)).toBeDisabled();
   });
 
   it("選取 Directory 時排序選單為 enabled", () => {
     render(<ToolbarPanel {...defaultProps} selectedNode={selectedDir} />);
-    expect(screen.getByRole("combobox", { name: /排序/ })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /排序/ })).not.toBeDisabled();
   });
 
   it("選取 File 時排序選單依然 disabled（只有 Directory 可排序）", () => {
     render(<ToolbarPanel {...defaultProps} selectedNode={selectedFile} />);
-    expect(screen.getByRole("combobox", { name: /排序/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /排序/ })).toBeDisabled();
   });
 });
 
@@ -78,16 +78,16 @@ describe("ToolbarPanel — callback 觸發", () => {
     expect(onCopy).toHaveBeenCalledOnce();
   });
 
-  it("點擊「Undo」（已啟用）→ onUndo 被呼叫", () => {
+  it("點擊「復原」（已啟用）→ onUndo 被呼叫", () => {
     const onUndo = vi.fn();
     render(
       <ToolbarPanel {...defaultProps} canUndo={true} onUndo={onUndo} />,
     );
-    fireEvent.click(screen.getByText(/Undo/));
+    fireEvent.click(screen.getByText(/復原/));
     expect(onUndo).toHaveBeenCalledOnce();
   });
 
-  it("排序下拉選擇「依名稱 A→Z」→ onSort 被呼叫", () => {
+  it("排序下拉選擇「名稱 A → Z」→ onSort 被呼叫", () => {
     const onSort = vi.fn();
     render(
       <ToolbarPanel
@@ -96,8 +96,8 @@ describe("ToolbarPanel — callback 觸發", () => {
         onSort={onSort}
       />,
     );
-    const select = screen.getByRole("combobox", { name: /排序/ });
-    fireEvent.change(select, { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /排序/ }));
+    fireEvent.click(screen.getByText("名稱 A → Z"));
     expect(onSort).toHaveBeenCalledOnce();
   });
 });

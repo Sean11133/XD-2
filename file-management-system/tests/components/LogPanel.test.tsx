@@ -39,25 +39,29 @@ describe("LogPanel", () => {
     expect(screen.getByText("匯出完成")).toBeTruthy();
   });
 
-  it("SUCCESS 日誌包含 text-green-600 className", () => {
+  it("SUCCESS 日誌列使用 green inline style", () => {
     const logs = [makeLog("SUCCESS", "完成 ✓")];
     render(<LogPanel logs={logs} onClear={vi.fn()} />);
-    const row = screen.getByText("完成 ✓").closest("div");
-    expect(row?.className).toContain("text-green-600");
+    const row = screen.getByText("完成 ✓").closest("div") as HTMLElement;
+    const style = row?.getAttribute("style") ?? "";
+    // jsdom normalises #10b981 → rgb(16, 185, 129)
+    expect(style).toMatch(/10b981|rgb\(16,\s*185,\s*129\)/);
   });
 
-  it("INFO 日誌包含 text-gray-600 className", () => {
+  it("INFO 日誌列使用 text-secondary CSS 變數", () => {
     const logs = [makeLog("INFO", "開始處理")];
     render(<LogPanel logs={logs} onClear={vi.fn()} />);
-    const row = screen.getByText("開始處理").closest("div");
-    expect(row?.className).toContain("text-gray-600");
+    const row = screen.getByText("開始處理").closest("div") as HTMLElement;
+    expect(row?.getAttribute("style")).toMatch(/text-secondary/);
   });
 
-  it("WARNING 日誌包含 text-yellow-600 className", () => {
+  it("WARNING 日誌列使用 yellow inline style", () => {
     const logs = [makeLog("WARNING", "警告訊息")];
     render(<LogPanel logs={logs} onClear={vi.fn()} />);
-    const row = screen.getByText("警告訊息").closest("div");
-    expect(row?.className).toContain("text-yellow-600");
+    const row = screen.getByText("警告訊息").closest("div") as HTMLElement;
+    const style = row?.getAttribute("style") ?? "";
+    // jsdom normalises #f59e0b → rgb(245, 158, 11)
+    expect(style).toMatch(/f59e0b|rgb\(245,\s*158,\s*11\)/);
   });
 
   it("點擊清除日誌按鈕觸發 onClear callback", () => {
@@ -88,51 +92,57 @@ describe("LogPanel — DecoratedLogEntry 支援", () => {
     expect(screen.getByText("✅")).toBeTruthy();
   });
 
-  it("DecoratedLogEntry with styleHints=['color-green','bold'] → 對應 CSS class 存在", () => {
+  it("DecoratedLogEntry with styleHints=['color-green','bold'] → row 有 green+bold inline style", () => {
     const entry = makeDecoratedLog("完成", {
       icon: "✅",
       styleHints: ["color-green", "bold"],
     });
-    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
-    const row = container.querySelector(".text-emerald-600.font-bold");
-    expect(row).not.toBeNull();
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = screen.getByText("完成").closest("div") as HTMLElement;
+    const style = row?.getAttribute("style") ?? "";
+    expect(style).toMatch(/10b981|rgb\(16,\s*185,\s*129\)/);
+    expect(style).toMatch(/bold/);
   });
 
-  it("DecoratedLogEntry with styleHints=['color-yellow'] → amber class 存在", () => {
+  it("DecoratedLogEntry with styleHints=['color-yellow'] → row 有 yellow inline style", () => {
     const entry = makeDecoratedLog("警告", {
       icon: "⚠️",
       styleHints: ["color-yellow"],
     });
-    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
-    const row = container.querySelector(".text-amber-500");
-    expect(row).not.toBeNull();
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = screen.getByText("警告").closest("div") as HTMLElement;
+    const style = row?.getAttribute("style") ?? "";
+    // jsdom normalises #f59e0b → rgb(245, 158, 11)
+    expect(style).toMatch(/f59e0b|rgb\(245,\s*158,\s*11\)/);
   });
 
-  it("DecoratedLogEntry with styleHints=['color-blue'] → blue class 存在", () => {
+  it("DecoratedLogEntry with styleHints=['color-blue'] → row 有 accent CSS 變數", () => {
     const entry = makeDecoratedLog("掃描", {
       icon: "🔍",
       styleHints: ["color-blue"],
     });
-    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
-    const row = container.querySelector(".text-blue-600");
-    expect(row).not.toBeNull();
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = screen.getByText("掃描").closest("div") as HTMLElement;
+    expect(row?.getAttribute("style")).toMatch(/accent/);
   });
 
-  it("DecoratedLogEntry with styleHints=['color-gray','italic'] → gray+italic class 存在", () => {
+  it("DecoratedLogEntry with styleHints=['color-gray','italic'] → row 有 text-muted+italic inline style", () => {
     const entry = makeDecoratedLog("開始", {
       icon: "▶",
       styleHints: ["color-gray", "italic"],
     });
-    const { container } = render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
-    const row = container.querySelector(".text-slate-400.italic");
-    expect(row).not.toBeNull();
+    render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
+    const row = screen.getByText("開始").closest("div") as HTMLElement;
+    const style = row?.getAttribute("style") ?? "";
+    expect(style).toMatch(/text-muted/);
+    expect(style).toMatch(/italic/);
   });
 
-  it("DecoratedLogEntry with empty styleHints → 使用 LEVEL_CLASS fallback（INFO→text-gray-600）", () => {
+  it("DecoratedLogEntry with empty styleHints → 使用 INFO LEVEL_STYLE fallback（text-secondary）", () => {
     const entry = makeDecoratedLog("一般訊息", { styleHints: [] });
     render(<LogPanel logs={[entry]} onClear={vi.fn()} />);
-    const row = screen.getByText("一般訊息").closest("div");
-    expect(row?.className).toContain("text-gray-600");
+    const row = screen.getByText("一般訊息").closest("div") as HTMLElement;
+    expect(row?.getAttribute("style")).toMatch(/text-secondary/);
   });
 
   it("混合 LogEntry 與 DecoratedLogEntry → 均正常渲染", () => {
