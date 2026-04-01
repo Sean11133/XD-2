@@ -1,13 +1,13 @@
 # 最終報告 — 檔案管理系統後端 API
 
-| 欄位        | 內容                                       |
-| ----------- | ------------------------------------------ |
-| 需求編號    | 009                                        |
-| 需求名稱    | 檔案管理系統後端 API                       |
-| 版本號      | v1.0.0                                     |
-| 報告日期    | 2026-04-01                                 |
-| 負責開發    | Copilot @dev Inner Auto Loop               |
-| Loop 輪次   | Round 1（Phase A + B×3 heals + C + D + E） |
+| 欄位      | 內容                                       |
+| --------- | ------------------------------------------ |
+| 需求編號  | 009                                        |
+| 需求名稱  | 檔案管理系統後端 API                       |
+| 版本號    | v1.0.0                                     |
+| 報告日期  | 2026-04-01                                 |
+| 負責開發  | Copilot @dev Inner Auto Loop               |
+| Loop 輪次 | Round 1（Phase A + B×3 heals + C + D + E） |
 
 ---
 
@@ -34,15 +34,15 @@ tests/unit/         33 tests  ✅ ALL PASSED
 
 ### 2.2 測試覆蓋項目
 
-| 測試類別 | 測試案例數 | 通過數 |
-| -------- | ---------- | ------ |
-| Unit — NodeService | 16 | 16 |
-| Unit — LabelService | 13 | 13 |
-| Unit — 小計 | 29+4=33 | 33 |
-| Integration — /api/nodes | 16 | 16 |
-| Integration — /api/labels | 10 | 10 |
-| Integration — 小計 | 26 | 26 |
-| **總計** | **59** | **59** |
+| 測試類別                  | 測試案例數 | 通過數 |
+| ------------------------- | ---------- | ------ |
+| Unit — NodeService        | 16         | 16     |
+| Unit — LabelService       | 13         | 13     |
+| Unit — 小計               | 29+4=33    | 33     |
+| Integration — /api/nodes  | 16         | 16     |
+| Integration — /api/labels | 10         | 10     |
+| Integration — 小計        | 26         | 26     |
+| **總計**                  | **59**     | **59** |
 
 ---
 
@@ -99,28 +99,28 @@ backend/
 
 ### 3.2 修改檔案
 
-| 檔案 | 修改原因 |
-| ---- | -------- |
+| 檔案                        | 修改原因                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `backend/tests/conftest.py` | Heal #1: `import app.models as _models`（防名稱遮蔽）; Heal #2: `StaticPool`（SQLite`:memory:`連線獨立問題） |
 
 ---
 
 ## 4. API 端點清單
 
-| Method | Path | 功能 | Status |
-| ------ | ---- | ---- | ------ |
-| GET | `/api/nodes/tree` | 取完整樹狀結構 | ✅ |
-| POST | `/api/nodes/directory` | 建立目錄 | ✅ 201 |
-| POST | `/api/nodes/file` | 建立檔案 | ✅ 201 |
-| DELETE | `/api/nodes/{id}` | 刪除節點（Cascade） | ✅ 204 |
-| POST | `/api/nodes/{id}/copy` | 深複製節點至目標目錄 | ✅ 201 |
-| PATCH | `/api/nodes/{dir_id}/sort` | 排序子節點 | ✅ 200 |
-| GET | `/api/nodes/{id}/labels` | 取節點標籤列表 | ✅ 200 |
-| POST | `/api/nodes/{node_id}/labels/{label_id}` | 貼標籤（tag，冪等） | ✅ 200/201 |
-| DELETE | `/api/nodes/{node_id}/labels/{label_id}` | 移除標籤（untag） | ✅ 204 |
-| GET | `/api/labels` | 取所有標籤 | ✅ 200 |
-| POST | `/api/labels` | 建立標籤（Flyweight：重複返回 200，新建返回 201） | ✅ 200/201 |
-| DELETE | `/api/labels/{id}` | 刪除標籤 | ✅ 204 |
+| Method | Path                                     | 功能                                              | Status     |
+| ------ | ---------------------------------------- | ------------------------------------------------- | ---------- |
+| GET    | `/api/nodes/tree`                        | 取完整樹狀結構                                    | ✅         |
+| POST   | `/api/nodes/directory`                   | 建立目錄                                          | ✅ 201     |
+| POST   | `/api/nodes/file`                        | 建立檔案                                          | ✅ 201     |
+| DELETE | `/api/nodes/{id}`                        | 刪除節點（Cascade）                               | ✅ 204     |
+| POST   | `/api/nodes/{id}/copy`                   | 深複製節點至目標目錄                              | ✅ 201     |
+| PATCH  | `/api/nodes/{dir_id}/sort`               | 排序子節點                                        | ✅ 200     |
+| GET    | `/api/nodes/{id}/labels`                 | 取節點標籤列表                                    | ✅ 200     |
+| POST   | `/api/nodes/{node_id}/labels/{label_id}` | 貼標籤（tag，冪等）                               | ✅ 200/201 |
+| DELETE | `/api/nodes/{node_id}/labels/{label_id}` | 移除標籤（untag）                                 | ✅ 204     |
+| GET    | `/api/labels`                            | 取所有標籤                                        | ✅ 200     |
+| POST   | `/api/labels`                            | 建立標籤（Flyweight：重複返回 200，新建返回 201） | ✅ 200/201 |
+| DELETE | `/api/labels/{id}`                       | 刪除標籤                                          | ✅ 204     |
 
 ---
 
@@ -148,12 +148,12 @@ backend/
 
 ## 6. 設計模式應用
 
-| 模式 | 應用位置 | 說明 |
-| ---- | -------- | ---- |
-| Repository Pattern | `repositories/` | 封裝所有 SQLAlchemy 查詢 |
-| Flyweight | `LabelService.get_or_create()` | 標籤物件共享，避免重複建立 |
-| Strategy（dict-based） | `SORT_STRATEGIES` dict | 排序策略 O(1) 查找，符合 OCP |
-| Dependency Injection | FastAPI `Depends(get_db)` | Service 透過 DI 注入 Session |
+| 模式                   | 應用位置                       | 說明                         |
+| ---------------------- | ------------------------------ | ---------------------------- |
+| Repository Pattern     | `repositories/`                | 封裝所有 SQLAlchemy 查詢     |
+| Flyweight              | `LabelService.get_or_create()` | 標籤物件共享，避免重複建立   |
+| Strategy（dict-based） | `SORT_STRATEGIES` dict         | 排序策略 O(1) 查找，符合 OCP |
+| Dependency Injection   | FastAPI `Depends(get_db)`      | Service 透過 DI 注入 Session |
 
 ---
 
@@ -161,43 +161,43 @@ backend/
 
 ### 7.1 本輪未完成項目
 
-| 任務 | 說明 | 預估狀態 |
-| ---- | ---- | -------- |
-| T-10 | 重構 `FileSystemFacade.ts` 為 async API 呼叫 | 下一輪繼續 |
+| 任務 | 說明                                           | 預估狀態    |
+| ---- | ---------------------------------------------- | ----------- |
+| T-10 | 重構 `FileSystemFacade.ts` 為 async API 呼叫   | 下一輪繼續  |
 | T-11 | 修改 `App.tsx` 使用後端 API、移除 `sampleData` | T-10 完成後 |
 
 ### 7.2 技術債
 
-| 類型 | 描述 | 優先度 |
-| ---- | ---- | ------ |
-| Security | `global_exception_handler` 返回 `str(exc)` 可能洩漏內部訊息 | 低（本地 dev tool） |
-| DIP | `NodeService.__init__` 直接實例化 `NodeRepository`（而非透過介面注入） | 低（測試已 mock 覆蓋） |
-| 效能 | `get_tree` 一次載入所有節點，大型樹可能有效能問題 | 低（目前為 dev tool） |
+| 類型     | 描述                                                                   | 優先度                 |
+| -------- | ---------------------------------------------------------------------- | ---------------------- |
+| Security | `global_exception_handler` 返回 `str(exc)` 可能洩漏內部訊息            | 低（本地 dev tool）    |
+| DIP      | `NodeService.__init__` 直接實例化 `NodeRepository`（而非透過介面注入） | 低（測試已 mock 覆蓋） |
+| 效能     | `get_tree` 一次載入所有節點，大型樹可能有效能問題                      | 低（目前為 dev tool）  |
 
 ---
 
 ## 8. Phase B Heal 紀錄
 
-| Heal # | 問題 | 根本原因 | 修復方式 |
-| ------ | ---- | -------- | -------- |
-| #1 | `AttributeError: module 'app' has no attribute 'dependency_overrides'` | `conftest.py` 的 `import app.models` 遮蔽了 `from app.main import app` 所設的名稱 — `app` 被重新綁定為 Python 套件模組 | 改為 `import app.models as _models` |
-| #2 | `sqlite3.OperationalError: no such table: label_record` | SQLite `:memory:` 資料庫是**連線獨立**的 — `create_all()` 建立的連線和 Session 使用的連線不同，Session 看不到已建立的表 | `db_session` fixture 加入 `poolclass=StaticPool` |
+| Heal # | 問題                                                                   | 根本原因                                                                                                                | 修復方式                                         |
+| ------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| #1     | `AttributeError: module 'app' has no attribute 'dependency_overrides'` | `conftest.py` 的 `import app.models` 遮蔽了 `from app.main import app` 所設的名稱 — `app` 被重新綁定為 Python 套件模組  | 改為 `import app.models as _models`              |
+| #2     | `sqlite3.OperationalError: no such table: label_record`                | SQLite `:memory:` 資料庫是**連線獨立**的 — `create_all()` 建立的連線和 Session 使用的連線不同，Session 看不到已建立的表 | `db_session` fixture 加入 `poolclass=StaticPool` |
 
 ---
 
 ## 9. Phase C 審查結論
 
-| 審查維度 | 結果 | 備注 |
-| -------- | ---- | ---- |
-| SOLID — SRP | ✅ PASS | Service / Repository / Router 各司其職 |
-| SOLID — OCP | ✅ PASS | `SORT_STRATEGIES` dict 取代 if-else |
-| SOLID — LSP | ✅ PASS | 無繼承語意違反 |
-| SOLID — ISP | ✅ PASS | `AbstractRepository` 介面精簡 |
-| SOLID — DIP | ⚠️ NOTE | `NodeService` 直接 new `NodeRepository`，可接受 |
-| Clean Architecture | ✅ PASS | Router → Service → Repo → Model 層次分明 |
-| DDD | ✅ PASS | NodeManagement / LabelManagement BC 清晰 |
-| Security (OWASP) | ✅ PASS | ORM 防注入；Pydantic 驗證輸入；CORS 設定；⚠️ exc info 洩漏（低風險） |
-| FastAPI Best Practices | ✅ PASS | `Depends`、`status_code`、Pydantic v2 `ConfigDict` 符合規範 |
+| 審查維度               | 結果    | 備注                                                                 |
+| ---------------------- | ------- | -------------------------------------------------------------------- |
+| SOLID — SRP            | ✅ PASS | Service / Repository / Router 各司其職                               |
+| SOLID — OCP            | ✅ PASS | `SORT_STRATEGIES` dict 取代 if-else                                  |
+| SOLID — LSP            | ✅ PASS | 無繼承語意違反                                                       |
+| SOLID — ISP            | ✅ PASS | `AbstractRepository` 介面精簡                                        |
+| SOLID — DIP            | ⚠️ NOTE | `NodeService` 直接 new `NodeRepository`，可接受                      |
+| Clean Architecture     | ✅ PASS | Router → Service → Repo → Model 層次分明                             |
+| DDD                    | ✅ PASS | NodeManagement / LabelManagement BC 清晰                             |
+| Security (OWASP)       | ✅ PASS | ORM 防注入；Pydantic 驗證輸入；CORS 設定；⚠️ exc info 洩漏（低風險） |
+| FastAPI Best Practices | ✅ PASS | `Depends`、`status_code`、Pydantic v2 `ConfigDict` 符合規範          |
 
 **Phase C 最終結論：PASS（2 minor notes，無 blocker）**
 

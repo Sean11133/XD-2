@@ -56,7 +56,9 @@ export interface ApiLabel {
 
 function buildDomainNode(apiNode: ApiTreeNode): FileSystemNode {
   const sizeKB = apiNode.size_kb ?? 0;
-  const createdAt = apiNode.created_at ? new Date(apiNode.created_at) : new Date();
+  const createdAt = apiNode.created_at
+    ? new Date(apiNode.created_at)
+    : new Date();
 
   switch (apiNode.type) {
     case "directory": {
@@ -127,14 +129,20 @@ export class FileSystemFacade {
     try {
       resp = await fetch(`${this._apiBaseUrl}${path}`, options);
     } catch {
-      throw new ApiError("無法連線至後端伺服器，請確認後端已啟動", 0, "NETWORK_ERROR");
+      throw new ApiError(
+        "無法連線至後端伺服器，請確認後端已啟動",
+        0,
+        "NETWORK_ERROR",
+      );
     }
     if (!resp.ok) {
       let code = "API_ERROR";
       try {
-        const body = await resp.json() as { code?: string };
+        const body = (await resp.json()) as { code?: string };
         code = body.code ?? code;
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       throw new ApiError(`API 請求失敗（${resp.status}）`, resp.status, code);
     }
     if (resp.status === 204) return undefined as unknown as T;
@@ -269,7 +277,10 @@ export class FileSystemFacade {
    * 從後端載入完整檔案樹。
    * 回傳虛擬根目錄（名稱 "根目錄"）以及 node→API UUID 的映射表。
    */
-  async loadTree(): Promise<{ root: Directory; idMap: Map<FileSystemNode, string> }> {
+  async loadTree(): Promise<{
+    root: Directory;
+    idMap: Map<FileSystemNode, string>;
+  }> {
     const apiNodes = await this._apiFetch<ApiTreeNode[]>("/api/nodes/tree");
     const root = new Directory("根目錄");
     const idMap = new Map<FileSystemNode, string>();
@@ -293,7 +304,10 @@ export class FileSystemFacade {
    * 在後端深複製節點至目標目錄。
    * @returns 複製後的節點 id 與名稱（名稱衝突時後端自動加 _copy 後綴）
    */
-  async copyNodeOnServer(sourceId: string, targetDirId: string): Promise<ApiCopyResult> {
+  async copyNodeOnServer(
+    sourceId: string,
+    targetDirId: string,
+  ): Promise<ApiCopyResult> {
     return this._apiFetch<ApiCopyResult>(
       `/api/nodes/${sourceId}/copy?target_dir_id=${encodeURIComponent(targetDirId)}`,
       { method: "POST" },
@@ -323,7 +337,11 @@ export class FileSystemFacade {
   /**
    * 在後端建立標籤（Flyweight：同名返回既有標籤，status 200）。
    */
-  async createLabelOnServer(name: string, color: string, description = ""): Promise<ApiLabel> {
+  async createLabelOnServer(
+    name: string,
+    color: string,
+    description = "",
+  ): Promise<ApiLabel> {
     return this._apiFetch<ApiLabel>("/api/labels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -342,14 +360,18 @@ export class FileSystemFacade {
    * 在後端為節點貼標籤（冪等）。
    */
   async tagNodeOnServer(nodeId: string, labelId: string): Promise<void> {
-    await this._apiFetch<void>(`/api/nodes/${nodeId}/labels/${labelId}`, { method: "POST" });
+    await this._apiFetch<void>(`/api/nodes/${nodeId}/labels/${labelId}`, {
+      method: "POST",
+    });
   }
 
   /**
    * 在後端移除節點標籤。
    */
   async untagNodeOnServer(nodeId: string, labelId: string): Promise<void> {
-    await this._apiFetch<void>(`/api/nodes/${nodeId}/labels/${labelId}`, { method: "DELETE" });
+    await this._apiFetch<void>(`/api/nodes/${nodeId}/labels/${labelId}`, {
+      method: "DELETE",
+    });
   }
 
   /**
