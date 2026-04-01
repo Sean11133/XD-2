@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { FileSystemFacade } from "../../src/services/FileSystemFacade";
 import { CommandInvoker } from "../../src/services/CommandInvoker";
 import { Clipboard } from "../../src/domain/Clipboard";

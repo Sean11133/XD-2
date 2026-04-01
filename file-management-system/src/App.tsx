@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildSampleTree } from "./data/sampleData";
 import { FileTreeView } from "./components/FileTreeView";
 import { DashboardPanel } from "./components/DashboardPanel";
@@ -146,8 +146,15 @@ function buildMatchedPathsWithProgress(
 }
 
 function App() {
-  // buildSampleTree 用 useMemo 避免每次 re-render 重新建立
-  const root = useMemo(() => buildSampleTree(), []);
+  // root 初始值使用 sampleData，useEffect 後由後端 API 取代
+  const [root, setRoot] = useState<Directory>(() => buildSampleTree());
+
+  // API 載入狀態
+  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  // node → API UUID 對應表（只在 API 整合時有效）
+  const nodeIdMap = useRef<Map<FileSystemNode, string>>(new Map());
 
   const [inputValue, setInputValue] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -163,8 +170,28 @@ function App() {
   const canRedo = treeVersion >= 0 && facade.canRedo;
   const canPaste = treeVersion >= 0 && facade.canPaste(selectedNode);
 
-  // 進度面板 — 始終顯示，由 DashboardObserver 透過 callback 更新
-  const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps>({
+  // ── 後端 API 初始化載入 ───────────────────────────────────────────────────
+  useEffect(() => {
+    setIsLoading(true);
+    facade
+      .loadTree()
+      .then(({ root: apiRoot, idMap }) => {
+        setRoot(apiRoot);
+        nodeIdMap.current = idMap;
+        setServerError(null);
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "未知錯誤";
+        setServerError(`後端連線失敗（${msg}）— 使用本地範例資料`);
+        // 保留初始 sampleData，不中斷操作
+      })
+      .finally(() => setIsLoading(false));
+    // facade 為 useMemo 建立的穩定參考，effect 只需執行一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 進度面板 — 由 DashboardObserver 透過 callback 更新（null 時隱藏面板）
+  const [dashboardProps, setDashboardProps] = useState<DashboardPanelProps | null>({
     operationName: "等待操作",
     percentage: 0,
     current: 0,
@@ -408,6 +435,7 @@ function App() {
 
   const handlePaste = useCallback(() => {
     if (!selectedNode?.isDirectory()) return;
+    const sourceNode = facade["_clipboard"]?.getNode?.() ?? null;
     const result = facade.paste(selectedNode as Directory);
     appendLog({
       level: "SUCCESS",
@@ -417,17 +445,42 @@ function App() {
       timestamp: new Date(),
     });
     bumpTree();
+    // 非同步 API 持久化（fire-and-forget，失敗只記錄 log）
+    const sourceId = sourceNode ? nodeIdMap.current.get(sourceNode) : undefined;
+    const targetId = nodeIdMap.current.get(selectedNode);
+    if (sourceId && targetId) {
+      facade.copyNodeOnServer(sourceId, targetId).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "未知錯誤";
+        appendLog({ level: "WARNING", message: `⚠️ 後端同步失敗（貼上）：${msg}`, timestamp: new Date() });
+      });
+    }
   }, [selectedNode, facade, appendLog]);
 
   const handleDelete = useCallback(() => {
     if (!selectedNode || !selectedParent) return;
     const deletedName = selectedNode.name;
+    const nodeId = nodeIdMap.current.get(selectedNode);
     facade.delete(selectedNode, selectedParent);
     setSelectedNode(null);
     setSelectedParent(null);
     appendLog({ level: "WARNING", message: `🗑 刪除：${deletedName}`, timestamp: new Date() });
     bumpTree();
+    // 非同步 API 持久化
+    if (nodeId) {
+      facade.deleteNodeOnServer(nodeId).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "未知錯誤";
+        appendLog({ level: "WARNING", message: `⚠️ 後端同步失敗（刪除）：${msg}`, timestamp: new Date() });
+      });
+    }
   }, [selectedNode, selectedParent, facade, appendLog]);
+
+  // 前端 label → 後端 strategy key 對應（後端只支援名稱/大小排序）
+  const LABEL_TO_API_STRATEGY: Record<string, string> = {
+    "依名稱 A→Z": "name_asc",
+    "依名稱 Z→A": "name_desc",
+    "依大小 小→大": "size_asc",
+    "依大小 大→小": "size_desc",
+  };
 
   const handleSort = useCallback(
     (strategy: ISortStrategy) => {
@@ -436,7 +489,17 @@ function App() {
       facade.sort(dir, strategy);
       appendLog({ level: "INFO", message: `🔀 排序：${dir.name} 依 ${strategy.label}`, timestamp: new Date() });
       bumpTree();
+      // 非同步 API 持久化（僅後端支援的策略）
+      const apiStrategy = LABEL_TO_API_STRATEGY[strategy.label];
+      const dirId = nodeIdMap.current.get(dir);
+      if (apiStrategy && dirId) {
+        facade.sortChildrenOnServer(dirId, apiStrategy).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : "未知錯誤";
+          appendLog({ level: "WARNING", message: `⚠️ 後端同步失敗（排序）：${msg}`, timestamp: new Date() });
+        });
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedNode, facade, appendLog],
   );
 
@@ -587,6 +650,27 @@ function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+        {/* ── Server Error Banner ── */}
+        {serverError && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-amber-800 text-sm">
+            <span className="text-lg">⚠️</span>
+            <span className="flex-1">{serverError}</span>
+            <button
+              onClick={() => setServerError(null)}
+              className="text-amber-500 hover:text-amber-700 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* ── Loading Banner ── */}
+        {isLoading && (
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm">
+            <span className="animate-spin text-lg">⏳</span>
+            <span>正在從後端載入資料...</span>
+          </div>
+        )}
         {/* ── Action Bar ── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -642,7 +726,7 @@ function App() {
         </div>
 
         {/* ── Dashboard Panel ── */}
-        <DashboardPanel {...dashboardProps} />
+        {dashboardProps && <DashboardPanel {...dashboardProps} />}
 
         {/* ── Toolbar Panel ── */}
         <ToolbarPanel

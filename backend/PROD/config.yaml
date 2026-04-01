@@ -1,0 +1,12 @@
+database:
+  url: "sqlite:///./file_management.db"
+  wal_mode: true
+
+cors:
+  allow_origins:
+    - "http://localhost:5173"
+
+app:
+  debug: false
+  title: "File Management API"
+  version: "1.0.0"
