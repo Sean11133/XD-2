@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Directory } from "../domain/Directory";
 import type { FileSystemNode } from "../domain/FileSystemNode";
-import type { NodeDrawerResult } from "../hooks/useNodeDrawer";
 import { useNavigationHistory } from "../hooks/useNavigationHistory";
 import { NavigationBar } from "./NavigationBar";
 import { ExplorerItemGrid } from "./ExplorerItemGrid";
@@ -15,7 +14,10 @@ interface ExplorerViewProps {
   selectedNodeId?: string | null;
   /** 進入資料夾時通知父元件（用於同步左側樹） */
   onFolderChange?: (node: Directory) => void;
-  nodeDrawer: NodeDrawerResult;
+  /** 點擊檔案時展示詳情（由父元件紟一處理） */
+  onFileSelect?: (node: FileSystemNode, parent: Directory | null) => void;
+  /** 外部導覽目標：左側樹點擊 Directory 時傳入，驅動右側跳至對應資料夾 */
+  navigateTo?: Directory | null;
 }
 
 /**
@@ -28,7 +30,8 @@ interface ExplorerViewProps {
 export const ExplorerView: React.FC<ExplorerViewProps> = ({
   rootNode,
   onFolderChange,
-  nodeDrawer,
+  onFileSelect,
+  navigateTo,
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const history = useNavigationHistory(rootNode);
@@ -38,13 +41,22 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
     ? Array.from(currentNode.getChildren())
     : [];
 
+  // 外部導覽：左側樹選取 Directory 時，驅動右側跳至對應資料夾
+  useEffect(() => {
+    if (navigateTo && navigateTo !== currentNode) {
+      push(navigateTo);
+    }
+    // 僅在 navigateTo 改變時觸發，不追蹤 currentNode 以避免循環
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateTo]);
+
   const handleFolderEnter = (dir: Directory) => {
     push(dir);
     onFolderChange?.(dir);
   };
 
   const handleFileClick = (node: FileSystemNode) => {
-    nodeDrawer.open(node);
+    onFileSelect?.(node, currentNode);
   };
 
   // 麵包屑導覽（點擊跳轉回上層）

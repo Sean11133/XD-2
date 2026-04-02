@@ -129,8 +129,8 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           {isEditing ? (
             inlineInput
           ) : (
-            <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>
-              {node.getDisplayInfo()}
+            <span className="flex-1 text-sm truncate" style={{ color: "var(--text-primary)" }}>
+              {node.name}
             </span>
           )}
           {labels.length > 0 && (
@@ -197,8 +197,8 @@ export const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
       {isEditing ? (
         inlineInput
       ) : (
-        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {node.getDisplayInfo()}
+        <span className="text-sm truncate" style={{ color: "var(--text-secondary)" }}>
+          {node.name}
         </span>
       )}
       {!isEditing && labels.length > 0 && (

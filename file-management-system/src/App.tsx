@@ -34,9 +34,7 @@ import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { StatusBar } from "./components/StatusBar";
 import { SidebarHeader } from "./components/SidebarHeader";
 import { SearchFilterBar } from "./components/SearchFilterBar";
-import { NodeDetailDrawer } from "./components/NodeDetailDrawer";
 import { useTheme } from "./hooks/useTheme";
-import { useNodeDrawer } from "./hooks/useNodeDrawer";
 import { searchFilterService } from "./services/SearchFilterService";
 import { ExplorerView } from "./components/ExplorerView";
 
@@ -88,18 +86,34 @@ function getNodeTypeInfo(node: FileSystemNode): { icon: string; type: string; co
   return { icon: "📄", type: "檔案", color: "text-slate-600 bg-slate-50 border-slate-200" };
 }
 
+/**
+ * 提取 getDisplayInfo() 中類型區塊後的類型專屬元數據字串（跳過大小）。
+ * TextFile  → "UTF-8 · 2026-04-01"
+ * ImageFile → "800×600 · 2026-03-23"
+ * WordDoc   → "25頁 · 2026-03-10"
+ */
+function getFileExtras(node: FileSystemNode): string | null {
+  if (node.isDirectory()) return null;
+  const info = node.getDisplayInfo();
+  const closeIdx = info.indexOf(']');
+  if (closeIdx < 0) return null;
+  const after = info.slice(closeIdx + 2).trim(); // "1.5KB, UTF-8, 2026-04-01"
+  const parts = after.split(', ');
+  const extras = parts.slice(1); // skip size (first part), shown separately
+  return extras.length > 0 ? extras.join(' · ') : null;
+}
+
 function App() {
   // ── Theme ──────────────────────────────────────────────────────────────────
   const { theme, setTheme } = useTheme();
-
-  // ── Node Drawer ────────────────────────────────────────────────────────────
-  const nodeDrawer = useNodeDrawer();
-  const { isOpen: isDrawerOpen, node: drawerNode, open: openNodeDrawer, close: closeNodeDrawer } = nodeDrawer;
 
   // ── collapseAll trigger ────────────────────────────────────────────────────
   const [collapseAllTrigger, setCollapseAllTrigger] = useState(0);
   // null = 不顯示，其他值 = 待確認的匠出格式
   const [pendingExportFormat, setPendingExportFormat] = useState<"xml" | "json" | "md" | null>(null);
+
+  // ExplorerView 外部導覽目標（左側樹點擊 Directory 時更新）
+  const [explorerNavTarget, setExplorerNavTarget] = useState<Directory | null>(null);
 
   // root 初始值使用 sampleData，useEffect 後由後端 API 取代
   const [root, setRoot] = useState<Directory>(() => buildSampleTree());
@@ -232,7 +246,6 @@ function App() {
       // 取消上一次未完成的動畫
       animationTimers.current.forEach(clearTimeout);
       animationTimers.current = [];
-      setShowDashboard(true);  // 操作開始時自動展開進度面板
 
       // ── Phase 1: 同步匯出，用輕量 Subject 收集所有進度事件 ──
       const collectedEvents: ProgressEvent[] = [];
@@ -292,7 +305,6 @@ function App() {
         return;
       }
 
-      setShowDashboard(true);  // 搜尋開始時自動展開進度面板
       const opName = `搜尋「${kw}」`;
 
       // ── Phase 1: 同步走訪，用輕量 Subject 收集所有進度事件 ──
@@ -326,7 +338,7 @@ function App() {
         opName,
       );
 
-      if (root.name.toLowerCase().includes(kw.toLowerCase())) {
+      if (root.name.toLowerCase().includes(kw.toLowerCase()) || paths.size > 0) {
         paths.add(root.name);
       }
 
@@ -371,9 +383,14 @@ function App() {
     (node: FileSystemNode, parent: Directory | null) => {
       setSelectedNode(node);
       setSelectedParent(parent);
-      openNodeDrawer(node);
+      // 同步右側 ExplorerView：點擊資料夾 → 導覽至該資料夾；點擊檔案 → 導覽至其父目錄
+      if (node.isDirectory()) {
+        setExplorerNavTarget(node as Directory);
+      } else if (parent) {
+        setExplorerNavTarget(parent);
+      }
     },
-    [openNodeDrawer],
+    [],
   );
 
   const handleCopy = useCallback(() => {
@@ -587,7 +604,7 @@ function App() {
         className="flex-shrink-0 shadow-lg"
         style={{ background: "linear-gradient(to right, var(--header-from), var(--header-to))" }}
       >
-        <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
+        <div className="px-4 py-3 flex items-center gap-4">
           {/* App title */}
           <div className="flex items-center gap-3">
             <svg className="w-7 h-7 text-white opacity-90 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -600,14 +617,8 @@ function App() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="hidden sm:flex items-center gap-4 text-xs text-white opacity-70 ml-auto">
-            <span><span className="font-bold opacity-100">{totalNodes}</span> 個節點</span>
-            <span><span className="font-bold opacity-100">{formatSize(totalSize)}</span></span>
-          </div>
-
           {/* Export + Theme toggle */}
-          <div className="flex gap-1.5 ml-auto sm:ml-0">
+          <div className="flex gap-1.5 ml-auto">
             <button
               onClick={handleExportXml}
               className="text-xs px-2.5 py-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white rounded-lg transition-colors border border-white/20 flex items-center gap-1 whitespace-nowrap"
@@ -673,7 +684,7 @@ function App() {
 
       {/* ── Banners ── */}
       {(serverError || isLoading) && (
-        <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pt-3 space-y-2">
+        <div className="flex-shrink-0 w-full px-4 pt-3 space-y-2">
           {serverError && (
             <div
               className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
@@ -703,7 +714,7 @@ function App() {
       )}
 
       {/* ── Main two-column ── */}
-      <div className="flex-1 min-h-0 max-w-screen-xl mx-auto w-full px-6 py-4 flex gap-4 overflow-hidden">
+      <div className="flex-1 min-h-0 w-full px-4 py-3 flex gap-4 overflow-hidden">
         {/* Left: SearchFilterBar + SidebarHeader + File Tree */}
         <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
           {/* 統一搜尋 + 標籤篩選列 */}
@@ -790,7 +801,8 @@ function App() {
                 setSelectedNode(dir);
                 setSelectedParent(dir.isDirectory() ? (dir as Directory) : null);
               }}
-              nodeDrawer={nodeDrawer}
+              onFileSelect={handleSelect}
+              navigateTo={explorerNavTarget}
             />
           </div>
 
@@ -846,6 +858,12 @@ function App() {
                       </div>
                     )}
                   </div>
+                  {/* 類型專屬元數據（編碼 / 尺寸 / 頁數 · 日期） */}
+                  {getFileExtras(selectedNode) && (
+                    <div className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                      {getFileExtras(selectedNode)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -910,7 +928,7 @@ function App() {
       />
 
       {/* ── Bottom Panels ── */}
-      <div className="flex-shrink-0 max-w-screen-xl mx-auto w-full px-6 pb-3 space-y-2">
+      <div className="flex-shrink-0 w-full px-4 pb-3 space-y-2">
         {/* Toggle control bar */}
         <div
           className="flex items-center gap-2 px-4 py-1.5 rounded-xl"
@@ -996,14 +1014,6 @@ function App() {
           <LogPanel logs={logs} onClear={() => setLogs([])} />
         )}
       </div>
-
-      {/* ── NodeDetailDrawer — 右側滑動抽屜 ── */}
-      <NodeDetailDrawer
-        isOpen={isDrawerOpen}
-        node={drawerNode}
-        nodeLabels={drawerNode ? facade.getNodeLabels(drawerNode) : []}
-        onClose={closeNodeDrawer}
-      />
 
       {/* ── 篩選匯出確認 Dialog (US-04) ── */}
       {pendingExportFormat && (
